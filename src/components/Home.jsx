@@ -18,7 +18,10 @@ export default function Home({ onEnter }) {
   }
 
   return (
-    <Box sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', p: 2 }}>
+    // Scroll container (the card centers but grows past a short viewport — e.g. a
+    // phone in landscape — so it scrolls instead of being clipped).
+    <Box sx={{ height: '100%', overflowY: 'auto' }}>
+    <Box sx={{ minHeight: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', p: 2 }}>
       <Paper sx={{ p: 4, width: 'min(440px, 95vw)' }}>
         <Typography variant="h4" sx={{ fontWeight: 800, color: '#e0b343', mb: 0.5 }}>
           Tenpai
@@ -64,6 +67,7 @@ export default function Home({ onEnter }) {
           tab open; whoever arrives first runs the game, and if they leave the game ends.
         </Typography>
       </Paper>
+    </Box>
     </Box>
   )
 }

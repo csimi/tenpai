@@ -12,6 +12,10 @@ import TilePreview from './components/TilePreview.jsx'
 import { TileHoverContext } from './components/tileHover.js'
 import { useGame } from './hooks/useGame.js'
 
+// Phones held sideways have little vertical room, so the top bar would eat too
+// much of it. On short landscape touch viewports it moves to a left sidebar.
+const SIDEBAR_MQ = '@media (orientation: landscape) and (max-height: 600px) and (pointer: coarse)'
+
 // How many copies of a kind the local player can see (own hand + everyone's
 // discards/melds + dora indicators) and how many of the 4 remain unseen.
 // Opponents' concealed hands are counts in the view, never arrays, so their
@@ -56,9 +60,21 @@ function GameSession({ config, onLeave }) {
 
   return (
     <TileHoverContext.Provider value={hoverValue}>
-    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <AppBar position="static" color="default" enableColorOnDark>
-        <Toolbar variant="dense" sx={{ gap: 2, flexWrap: 'wrap', py: 0.5 }}>
+    <Box sx={{ height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column', [SIDEBAR_MQ]: { flexDirection: 'row' } }}>
+      <AppBar position="static" color="default" enableColorOnDark sx={{ [SIDEBAR_MQ]: { width: 'auto', height: '100%' } }}>
+        <Toolbar
+          variant="dense"
+          sx={{
+            gap: 2, flexWrap: 'wrap', py: 0.5,
+            // On short landscape (phone held sideways) the bar becomes a vertical
+            // sidebar, so stack its contents and let the spacer push Leave to the
+            // bottom; scroll if the items overflow the height.
+            [SIDEBAR_MQ]: {
+              flexDirection: 'column', alignItems: 'flex-start', flexWrap: 'nowrap',
+              height: '100%', py: 1, overflowY: 'auto'
+            }
+          }}
+        >
           <Typography variant="h6" sx={{ color: '#e0b343', fontWeight: 800 }}>Tenpai</Typography>
           <Typography variant="body2" sx={{ color: '#cdbf94' }}>Room {config.roomId}</Typography>
           <ConnectionStatus net={net} />
@@ -83,27 +99,33 @@ function GameSession({ config, onLeave }) {
         </DialogActions>
       </Dialog>
 
-      {/* Non-fatal connection guidance — visible in-game too, not just the lobby. */}
-      {warning && (
-        <Alert severity="warning" variant="filled" sx={{ borderRadius: 0 }}>{warning}</Alert>
-      )}
-
-      <Box sx={{ flex: 1, minHeight: 0 }}>
-        {inGame ? (
-          <GameBoard view={view} isHost={isHost} sendAction={sendAction} goNextRound={goNextRound} emotes={emotes} sendEmote={sendEmote} />
-        ) : (
-          <Lobby
-            roomId={config.roomId}
-            roster={roster}
-            isHost={isHost}
-            canStart={canStart}
-            onStart={startGame}
-            chat={chat}
-            onSend={sendChat}
-            status={status}
-            net={net}
-          />
+      {/* Content column beside the bar (below it normally, right of it when the
+          bar is a landscape sidebar). Scrolls internally so tall content (e.g. the
+          lobby on a short landscape screen) never grows the layout or pushes the
+          bar off-screen. */}
+      <Box sx={{ flex: 1, minWidth: 0, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'auto' }}>
+        {/* Non-fatal connection guidance — visible in-game too, not just the lobby. */}
+        {warning && (
+          <Alert severity="warning" variant="filled" sx={{ borderRadius: 0 }}>{warning}</Alert>
         )}
+
+        <Box sx={{ flex: 1, minHeight: 0 }}>
+          {inGame ? (
+            <GameBoard view={view} isHost={isHost} sendAction={sendAction} goNextRound={goNextRound} emotes={emotes} sendEmote={sendEmote} />
+          ) : (
+            <Lobby
+              roomId={config.roomId}
+              roster={roster}
+              isHost={isHost}
+              canStart={canStart}
+              onStart={startGame}
+              chat={chat}
+              onSend={sendChat}
+              status={status}
+              net={net}
+            />
+          )}
+        </Box>
       </Box>
 
       {/* Dismissible error toast for engine/transport failures. */}

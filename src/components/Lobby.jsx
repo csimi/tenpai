@@ -16,7 +16,7 @@ export default function Lobby({ roomId, roster, isHost, canStart, onStart, chat,
         : 'Found other players. Waiting for the host to start…'
 
   return (
-    <Box sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', p: 2 }}>
+    <Box sx={{ minHeight: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', p: 2 }}>
       <Paper sx={{ p: 3, width: 'min(560px, 95vw)' }}>
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
           <Typography variant="h5" sx={{ fontWeight: 700 }}>Lobby</Typography>
