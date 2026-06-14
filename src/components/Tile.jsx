@@ -41,6 +41,17 @@ export default function Tile({
   const landscape = rotation === 90 || rotation === 270
   const bodyW = landscape ? dims.h : dims.w
   const bodyH = landscape ? dims.w : dims.h
+  // The body is border-box with a 1px face-up border. The face is absolutely
+  // positioned, so its containing block is the body's padding box (already inside
+  // that border). Shrink the face to that inner box and center it against the
+  // padding box — both dims drop the 2px border so the face fits exactly and
+  // stays centered (also when the body is landscape from rotation). Face-down has
+  // no border, so its back fills edge to edge.
+  const inset = facedown ? '0px' : '2px'
+  const faceW = `calc(${dims.w} - ${inset})`
+  const faceH = `calc(${dims.h} - ${inset})`
+  const innerW = `calc(${bodyW} - ${inset})`
+  const innerH = `calc(${bodyH} - ${inset})`
   const clickable = !!onClick && !disabled
 
   const hover = useTileHover()
@@ -92,10 +103,10 @@ export default function Tile({
       <Box
         sx={{
           position: 'absolute',
-          width: dims.w,
-          height: dims.h,
-          left: `calc((${bodyW} - ${dims.w}) / 2)`,
-          top: `calc((${bodyH} - ${dims.h}) / 2)`,
+          width: faceW,
+          height: faceH,
+          left: `calc((${innerW} - ${faceW}) / 2)`,
+          top: `calc((${innerH} - ${faceH}) / 2)`,
           transform: rotation ? `rotate(${rotation}deg)` : 'none',
           transformOrigin: 'center',
           display: 'flex'
