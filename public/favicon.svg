@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <linearGradient id="face" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fffef9"/>
+      <stop offset="1" stop-color="#ece6d6"/>
+    </linearGradient>
+  </defs>
+  <!-- tile body -->
+  <rect x="10" y="4" width="44" height="56" rx="8" ry="8"
+        fill="url(#face)" stroke="#b6ad97" stroke-width="2"/>
+  <!-- red dragon character 中 (chun) -->
+  <text x="32" y="33" text-anchor="middle" dominant-baseline="central"
+        font-family="'Yu Mincho','MS Mincho',serif" font-size="40" font-weight="700"
+        fill="#b3243b">中</text>
+</svg>

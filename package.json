@@ -1,0 +1,35 @@
+{
+  "name": "tenpai",
+  "version": "1.0.0",
+  "description": "Serverless 4-player P2P riichi mahjong.",
+  "private": true,
+  "main": "index.js",
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/csimi/tenpai.git"
+  },
+  "scripts": {
+    "test": "node --test",
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "author": "David Cirmaz",
+  "license": "ISC",
+  "type": "module",
+  "dependencies": {
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
+    "@mui/icons-material": "^9.1.1",
+    "@mui/material": "^9.1.1",
+    "@trystero-p2p/core": "^0.25.2",
+    "@trystero-p2p/nostr": "^0.25.2",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "tilekit": "^1.0.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^6.0.2",
+    "vite": "^8.0.16"
+  }
+}

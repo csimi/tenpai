@@ -1,0 +1,132 @@
+import { useState, useCallback, useMemo, useEffect } from 'react'
+import {
+  Box, AppBar, Toolbar, Typography, Button, Snackbar, Alert,
+  Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions
+} from '@mui/material'
+import Home from './components/Home.jsx'
+import Lobby from './components/Lobby.jsx'
+import GameBoard from './components/GameBoard.jsx'
+import ConnectionStatus from './components/ConnectionStatus.jsx'
+import GameStatus from './components/GameStatus.jsx'
+import TilePreview from './components/TilePreview.jsx'
+import { TileHoverContext } from './components/tileHover.js'
+import { useGame } from './hooks/useGame.js'
+
+// How many copies of a kind the local player can see (own hand + everyone's
+// discards/melds + dora indicators) and how many of the 4 remain unseen.
+// Opponents' concealed hands are counts in the view, never arrays, so their
+// hidden tiles are not counted. Called tiles are skipped in the pond since the
+// meld they joined already counts them.
+function seenInfo(view, kind) {
+  if (!view) return { visible: 0, remaining: 4 }
+  let visible = 0
+  for (const hand of view.hands || []) {
+    if (Array.isArray(hand)) visible += hand.filter((tile) => tile === kind).length
+  }
+  for (const pile of view.discards || []) {
+    visible += pile.filter((entry) => entry.tile === kind && !entry.called).length
+  }
+  for (const melds of view.melds || []) {
+    for (const meld of melds) visible += meld.tiles.filter((tile) => tile === kind).length
+  }
+  visible += (view.doraIndicators || []).filter((tile) => tile === kind).length
+  return { visible, remaining: Math.max(0, 4 - visible) }
+}
+
+// Mounted once the player has entered a room. Owns the live session.
+function GameSession({ config, onLeave }) {
+  const {
+    view, roster, chat, emotes, status, isHost, canStart, net, warning, error, dismissError,
+    sendAction, startGame, goNextRound, sendChat, sendEmote
+  } = useGame(config)
+
+  const inGame = !!view
+  const [confirmLeave, setConfirmLeave] = useState(false)
+
+  // Hover state shared across every tile (hand, ponds, melds, dora indicators
+  // in the header) so the "tiles seen / left" tooltip and match-highlight stay
+  // consistent everywhere.
+  const [hovered, setHovered] = useState(null)
+  const infoFor = useCallback((kind) => seenInfo(view, kind), [view])
+  const hoverValue = useMemo(() => ({ hovered, setHovered, infoFor }), [hovered, infoFor])
+  // Drop any hover when the board changes: the hovered tile may have moved or been
+  // removed (discard/draw/call) without firing a mouse-leave, which would
+  // otherwise leave its highlight and tooltip stuck on.
+  useEffect(() => { setHovered(null) }, [view])
+
+  return (
+    <TileHoverContext.Provider value={hoverValue}>
+    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+      <AppBar position="static" color="default" enableColorOnDark>
+        <Toolbar variant="dense" sx={{ gap: 2, flexWrap: 'wrap', py: 0.5 }}>
+          <Typography variant="h6" sx={{ color: '#e0b343', fontWeight: 800 }}>Tenpai</Typography>
+          <Typography variant="body2" sx={{ color: '#cdbf94' }}>Room {config.roomId}</Typography>
+          <ConnectionStatus net={net} />
+          {inGame && <GameStatus view={view} />}
+          <Box sx={{ flex: 1 }} />
+          <Button color="inherit" size="small" onClick={() => setConfirmLeave(true)}>Leave</Button>
+        </Toolbar>
+      </AppBar>
+
+      <Dialog open={confirmLeave} onClose={() => setConfirmLeave(false)}>
+        <DialogTitle>Leave the game?</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            {isHost
+              ? 'You are the host — leaving ends the game for everyone.'
+              : 'You will leave this room and return to the main menu.'}
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmLeave(false)}>Stay</Button>
+          <Button color="error" variant="contained" onClick={onLeave}>Leave</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Non-fatal connection guidance — visible in-game too, not just the lobby. */}
+      {warning && (
+        <Alert severity="warning" variant="filled" sx={{ borderRadius: 0 }}>{warning}</Alert>
+      )}
+
+      <Box sx={{ flex: 1, minHeight: 0 }}>
+        {inGame ? (
+          <GameBoard view={view} isHost={isHost} sendAction={sendAction} goNextRound={goNextRound} emotes={emotes} sendEmote={sendEmote} />
+        ) : (
+          <Lobby
+            roomId={config.roomId}
+            roster={roster}
+            isHost={isHost}
+            canStart={canStart}
+            onStart={startGame}
+            chat={chat}
+            onSend={sendChat}
+            status={status}
+            net={net}
+          />
+        )}
+      </Box>
+
+      {/* Dismissible error toast for engine/transport failures. */}
+      <Snackbar
+        open={!!error}
+        onClose={dismissError}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert severity="error" onClose={dismissError} variant="filled" sx={{ maxWidth: 600 }}>
+          {error}
+        </Alert>
+      </Snackbar>
+    </Box>
+    </TileHoverContext.Provider>
+  )
+}
+
+export default function App() {
+  const [config, setConfig] = useState(null)
+
+  // Dev aid: view all tile faces at #tiles.
+  if (typeof window !== 'undefined' && window.location.hash === '#tiles') return <TilePreview />
+
+  if (!config) return <Home onEnter={setConfig} />
+  return <GameSession config={config} onLeave={() => setConfig(null)} />
+}
