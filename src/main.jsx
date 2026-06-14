@@ -16,3 +16,12 @@ createRoot(document.getElementById('root')).render(
     </ErrorBoundary>
   </ThemeProvider>
 )
+
+// Register the service worker so the app is installable and launches offline.
+// Scoped to Vite's base path so it works on the GitHub Pages project site.
+if ('serviceWorker' in navigator) {
+  const base = import.meta.env.BASE_URL
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register(`${base}sw.js`, { scope: base }).catch(() => {})
+  })
+}

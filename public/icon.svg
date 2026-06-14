@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="face" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fffef9"/>
+      <stop offset="1" stop-color="#ece6d6"/>
+    </linearGradient>
+  </defs>
+  <!-- full-bleed background so the icon reads well as a maskable app icon -->
+  <rect width="512" height="512" fill="#0b3d2e"/>
+  <!-- tile body, kept inside the maskable safe zone (centered ~62%) -->
+  <rect x="170" y="120" width="172" height="272" rx="32" ry="32"
+        fill="url(#face)" stroke="#b6ad97" stroke-width="8"/>
+  <!-- red dragon character 中 (chun) -->
+  <text x="256" y="262" text-anchor="middle" dominant-baseline="central"
+        font-family="'Yu Mincho','MS Mincho',serif" font-size="190" font-weight="700"
+        fill="#b3243b">中</text>
+</svg>
