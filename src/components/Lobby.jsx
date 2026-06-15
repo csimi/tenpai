@@ -4,7 +4,7 @@ import Chat from './Chat.jsx'
 import ConnectionStatus from './ConnectionStatus.jsx'
 import Tile from './Tile.jsx'
 
-export default function Lobby({ roomId, roster, isHost, canStart, onStart, akaDora, onToggleAka, matchLength, onChangeMatchLength, chat, onSend, status, net }) {
+export default function Lobby({ roomId, roster, isHost, canStart, onStart, akaDora, onToggleAka, matchLength, onChangeMatchLength, timeLimit, onChangeTimeLimit, chat, onSend, status, net }) {
   const slots = [0, 1, 2, 3]
   const copy = () => navigator.clipboard?.writeText(roomId)
 
@@ -61,6 +61,20 @@ export default function Lobby({ roomId, roster, isHost, canStart, onStart, akaDo
               <ToggleButton value="east">East only<br />(Tonpuusen)</ToggleButton>
               <ToggleButton value="south">East + South<br />(Hanchan)</ToggleButton>
               <ToggleButton value="all">All four winds</ToggleButton>
+            </ToggleButtonGroup>
+            <Typography variant="body2" sx={{ mb: 0.5, color: '#cdbf94' }}>Turn time limit</Typography>
+            <ToggleButtonGroup
+              exclusive
+              fullWidth
+              size="small"
+              value={timeLimit}
+              onChange={(event, value) => { if (value) onChangeTimeLimit(value) }}
+              sx={{ mb: 1.5, '& .MuiToggleButton-root': { flex: 1, lineHeight: 1.2 } }}
+            >
+              <ToggleButton value="off">Off</ToggleButton>
+              <ToggleButton value="5+20">5s<br />+20s</ToggleButton>
+              <ToggleButton value="60">60s</ToggleButton>
+              <ToggleButton value="300">300s</ToggleButton>
             </ToggleButtonGroup>
             <FormControlLabel
               sx={{ display: 'flex', mb: 1, ml: 0 }}

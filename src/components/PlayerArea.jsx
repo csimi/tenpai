@@ -32,6 +32,7 @@ export default function PlayerArea({ view, seat, orientation = 'top', emote }) {
       showScore={false}
       emote={emote}
       emoteDir={{ top: 'down', left: 'right', right: 'left' }[orientation]}
+      timer={view.timer?.[seat] || null}
     />
   )
   const hand = (

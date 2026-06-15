@@ -88,6 +88,10 @@ test/            node:test suites for the engine & scorer
 - **Match length** is a host lobby choice: **tonpuusen** (East-only, default),
   **hanchan** (East+South), or a full **four-wind** match (`createGame` takes
   `{ hanchan: true }` or `{ maxRoundWind: '1z' | '2z' | '4z' }`).
+- **Turn time limit** is an optional host lobby choice (off by default): **5s +
+  20s** reserve, **60s**, or **300s** per move. When a player runs out of time
+  the table plays a safe default for them (discard the drawn tile, or pass a
+  call) so the game never stalls on someone who's away.
 
 ## Notes & limitations
 

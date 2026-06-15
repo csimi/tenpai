@@ -15,6 +15,17 @@ const BOT_DELAY = import.meta.env.DEV ? 0 : 5000
 // Lobby match-length choice -> the match's final round wind (see createGame).
 const MATCH_END_WIND = { east: '1z', south: '2z', all: '4z' }
 
+// Lobby time-limit choice -> per-action allowance: `base` free seconds plus a
+// `bank` reserve, summed into one budget the host enforces by playing a safe
+// default move (tsumogiri discard, or pass on a call) when it runs out. 'off'
+// disables the clock — the host never auto-plays a present human.
+const TIME_LIMITS = {
+  off: { base: 0, bank: 0 },
+  '5+20': { base: 5, bank: 20 },
+  '60': { base: 60, bank: 0 },
+  '300': { base: 300, bank: 0 }
+}
+
 // Where the human players sit so they're spread as far apart as possible — with
 // two humans they face each other (seats 0 and 2) and the bots take the sides.
 const HUMAN_SEATS = { 1: [0], 2: [0, 2], 3: [0, 1, 2], 4: [0, 1, 2, 3] }
@@ -60,6 +71,7 @@ export function useGame({ roomId, name }) {
   const [status, setStatus] = useState('connecting')
   const [akaDora, setAkaDora] = useState(true) // host's red-fives toggle (default on)
   const [matchLength, setMatchLength] = useState('east') // host's match length: 'east' | 'south' | 'all'
+  const [timeLimit, setTimeLimit] = useState('off') // host's turn clock: key into TIME_LIMITS
   // Connection / error feedback surfaced to the UI.
   const [net, setNet] = useState({ peers: 0, relayOpen: 0, relayTotal: 0, reachedHost: false })
   const [warning, setWarning] = useState(null) // non-fatal connection guidance
@@ -76,6 +88,11 @@ export function useGame({ roomId, name }) {
   viewRef.current = view // latest view, for reading own seat in callbacks
   const botTimerRef = useRef(null) // host only: pending bot move
   const runBotsRef = useRef(() => {}) // host only: bot-driver, set below
+  const turnTimerRef = useRef(null) // host only: pending auto-play on timeout
+  const clockRef = useRef({ key: null, seats: {} }) // host only: live turn-clock state
+  const timeBaseRef = useRef(0) // host only: free seconds each move before the reserve drains
+  const bankLeftRef = useRef([0, 0, 0, 0]) // host only: per-seat reserve seconds left this match
+  const updateClockRef = useRef(() => null) // host only: clock updater, set below
 
   const setRoleSafe = useCallback((next) => {
     roleRef.current = next
@@ -103,11 +120,14 @@ export function useGame({ roomId, name }) {
     const conn = connRef.current
     const game = gameRef.current
     if (!conn || !game) return
+    // Refresh the turn clock first so its countdown rides along on every view.
+    const timer = updateClockRef.current()
     try {
       for (const player of rosterRef.current) {
         // Bots have no peer to receive a view; they're driven straight from state.
         if (player.bot) continue
         const personalized = viewFor(game, player.id)
+        if (timer) personalized.timer = timer
         if (player.id === selfId) setView(clone(personalized))
         else conn.sendView(clone(personalized), player.id)
       }
@@ -133,6 +153,13 @@ export function useGame({ roomId, name }) {
       rosterRef.current = seating
       setRoster(seating.slice())
       const players = seating.map((player) => ({ id: player.id, name: player.name }))
+      const limit = TIME_LIMITS[timeLimit] || TIME_LIMITS.off
+      timeBaseRef.current = limit.base
+      // The reserve is a per-seat pool for the whole match (it only refills `base`
+      // each move, never the bank), so seed each seat once here.
+      bankLeftRef.current = [0, 1, 2, 3].map(() => limit.bank)
+      clockRef.current = { key: null, seats: {} }
+      clearTimeout(turnTimerRef.current)
       const game = startRound(createGame(players, { aka: akaDora, maxRoundWind: MATCH_END_WIND[matchLength] }))
       gameRef.current = game
       connRef.current.sendStart({ players: seating })
@@ -140,7 +167,7 @@ export function useGame({ roomId, name }) {
     } catch (err) {
       fail('Failed to start game', err)
     }
-  }, [broadcast, fail, akaDora, matchLength])
+  }, [broadcast, fail, akaDora, matchLength, timeLimit])
 
   const goNextRound = useCallback(() => {
     if (!isHostRef.current || !gameRef.current) return
@@ -196,6 +223,127 @@ export function useGame({ roomId, name }) {
     }, BOT_DELAY)
   }, [broadcast, fail])
   runBotsRef.current = runBots
+
+  // ---- turn clock (host only) ----
+  // Enforce the lobby time limit, MahjongSoul-style: each move a present human
+  // gets `base` free seconds; once those run out their personal reserve drains,
+  // and the reserve persists (shrinking) for the rest of the match. When a seat's
+  // own deadline passes, play a safe default so the round never stalls: tsumogiri
+  // their drawn tile on a turn, or pass the call they're sitting on. Bots are
+  // excluded (the bot driver paces them); 'off' (base 0) disables the clock.
+
+  const onTimeout = useCallback(() => {
+    const game = gameRef.current
+    if (!isHostRef.current || !game || game.phase !== 'playing') return
+    const now = Date.now()
+    // Only act for seats whose own deadline has actually passed.
+    const expired = Object.entries(clockRef.current.seats)
+      .filter(([, entry]) => entry.deadline <= now + 30)
+      .map(([seatStr]) => Number(seatStr))
+    if (!expired.length) return
+    try {
+      if (game.state === 'discard' && expired.includes(game.turn)) {
+        const seat = game.turn
+        const hand = game.hands[seat]
+        // Tsumogiri the freshly drawn tile; after a call (no draw) drop the last one.
+        const tile = game.drawnTile != null ? game.drawnTile : hand[hand.length - 1]
+        gameRef.current = applyAction(game, seat, { type: 'discard', tile })
+      } else if (game.state === 'callWait' && game.pendingCalls) {
+        let next = game
+        for (const seat of expired) {
+          const entry = next.pendingCalls?.[seat]
+          if (entry && !entry.responded) {
+            next = applyAction(next, seat, { type: 'callResponse', response: { type: 'pass' } })
+          }
+        }
+        gameRef.current = next
+      } else {
+        return
+      }
+      broadcast()
+    } catch (err) {
+      fail('Auto-play on timeout failed', err)
+    }
+  }, [broadcast, fail])
+
+  // Recompute the clock for whatever decision point the state is now at, charging
+  // each seat's reserve as its window closes, and return a per-seat countdown
+  // payload to ride along on the broadcast view (or null when no human is on the
+  // clock). A seat's window opens with a deadline of base + its remaining reserve.
+  const updateClock = useCallback(() => {
+    const baseSec = timeBaseRef.current
+    const game = gameRef.current
+    const prev = clockRef.current
+    const now = Date.now()
+
+    // Charge a seat's reserve for the time it spent beyond `base` on a window
+    // that just closed (clamped at zero).
+    const settleSeat = (seat, entry, endTime) => {
+      const overBase = (endTime - entry.start) / 1000 - baseSec
+      if (overBase > 0) bankLeftRef.current[seat] = Math.max(0, bankLeftRef.current[seat] - overBase)
+    }
+
+    const roster = rosterRef.current
+    const acting = []
+    let key = null
+    if (isHostRef.current && baseSec && game && game.phase === 'playing') {
+      if (game.state === 'discard' && !roster[game.turn]?.bot) {
+        acting.push(game.turn)
+        // Unique per turn: a seat's discard count strictly increases, and the
+        // drawn tile distinguishes a rinshan re-discard at the same count.
+        key = `t:${game.turn}:${game.discards[game.turn].length}:${game.drawnTile}`
+      } else if (game.state === 'callWait' && game.pendingCalls) {
+        for (const [seatStr, entry] of Object.entries(game.pendingCalls)) {
+          const seat = Number(seatStr)
+          if (!entry.responded && !roster[seat]?.bot) acting.push(seat)
+        }
+        // Key on the discard being answered, not the seat set, so one seat
+        // responding doesn't reset the others' clocks.
+        if (acting.length) key = `c:${game.lastDiscard?.index}`
+      }
+    }
+
+    let seats
+    if (key !== prev.key) {
+      // New decision point: close every seat from the old window, then open fresh
+      // ones starting now (each with its own base + remaining-reserve budget).
+      for (const [seatStr, entry] of Object.entries(prev.seats)) settleSeat(Number(seatStr), entry, now)
+      seats = {}
+      for (const seat of acting) {
+        seats[seat] = { start: now, deadline: now + (baseSec + bankLeftRef.current[seat]) * 1000 }
+      }
+    } else {
+      // Same call window: keep still-pending seats, settle the ones that answered.
+      const stillActing = new Set(acting)
+      seats = {}
+      for (const [seatStr, entry] of Object.entries(prev.seats)) {
+        const seat = Number(seatStr)
+        if (stillActing.has(seat)) seats[seat] = entry
+        else settleSeat(seat, entry, now)
+      }
+    }
+    clockRef.current = { key, seats }
+
+    clearTimeout(turnTimerRef.current)
+    const entries = Object.entries(seats)
+    if (!entries.length) return null
+    // One timeout, armed for whichever seat's deadline comes first.
+    const earliest = Math.min(...entries.map(([, entry]) => entry.deadline))
+    turnTimerRef.current = setTimeout(onTimeout, Math.max(0, earliest - now) + 50)
+
+    const payload = {}
+    for (const [seatStr, entry] of entries) {
+      payload[seatStr] = {
+        // Full budget left; the bank is the reserve entering this window, so the
+        // client shows base counting down first, then the reserve.
+        remaining: Math.max(0, (entry.deadline - now) / 1000),
+        bank: bankLeftRef.current[Number(seatStr)],
+        token: `${key}:${entry.start}`
+      }
+    }
+    return payload
+  }, [onTimeout])
+  updateClockRef.current = updateClock
 
   // ---- action dispatch (works for host and clients) ----
   const sendAction = useCallback((action) => {
@@ -481,6 +629,7 @@ export function useGame({ roomId, name }) {
       clearInterval(heartbeat)
       clearInterval(monitor)
       clearTimeout(botTimerRef.current)
+      clearTimeout(turnTimerRef.current)
       try { conn.leave() } catch { /* ignore */ }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -503,6 +652,8 @@ export function useGame({ roomId, name }) {
     setAkaDora,
     matchLength,
     setMatchLength,
+    timeLimit,
+    setTimeLimit,
     net,
     warning,
     error,

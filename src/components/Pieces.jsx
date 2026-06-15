@@ -1,7 +1,48 @@
+import { useEffect, useState } from 'react'
 import { Box, Typography, Chip, Tooltip } from '@mui/material'
 import Tile from './Tile.jsx'
 import EmojiPicker from './EmojiPicker.jsx'
 import { doraFromIndicator } from '../game/tiles.js'
+
+// Countdown pill for a seat that's on the turn clock. `remaining` is the seat's
+// whole budget (base + reserve) left when the latest view arrived; `bank` is the
+// reserve part. We tick down locally so it stays smooth between broadcasts, and
+// show the base counting down first (green), then the reserve (amber), red in the
+// last few seconds. Mounted with a per-decision `key` so each move resets it.
+export function TurnTimer({ remaining, bank }) {
+  const [left, setLeft] = useState(remaining)
+  useEffect(() => {
+    setLeft(remaining)
+    const start = Date.now()
+    const id = setInterval(() => {
+      const next = remaining - (Date.now() - start) / 1000
+      setLeft(next > 0 ? next : 0)
+    }, 250)
+    return () => clearInterval(id)
+  }, [remaining])
+  // Above the reserve we're still on base time; show the base part draining, then
+  // hand over to the reserve number once base is gone. Normal time stays amber the
+  // whole way down; only the reserve burning down goes red.
+  const inReserve = bank > 0 && left <= bank
+  const shown = inReserve ? left : left - bank
+  const color = inReserve ? '#ff5252' : '#e0b343'
+  return (
+    <Box
+      sx={{
+        display: 'inline-flex', alignItems: 'baseline', justifyContent: 'center', gap: 0.25,
+        minWidth: 24, px: 0.5, py: 0.25, borderRadius: 1, lineHeight: 1.2,
+        color: '#1a1a1a', background: color, fontVariantNumeric: 'tabular-nums'
+      }}
+    >
+      <Box component="span" sx={{ fontWeight: 700, fontSize: 13 }}>{Math.ceil(shown)}</Box>
+      {/* While on base time, show the reserve waiting behind it (+N). In the
+          reserve the main number already is what's left, so drop the suffix. */}
+      {bank > 0 && !inReserve && (
+        <Box component="span" sx={{ fontSize: 9, fontWeight: 700, opacity: 0.75 }}>+{Math.ceil(bank)}</Box>
+      )}
+    </Box>
+  )
+}
 
 const WIND_LABEL = { '1z': 'E', '2z': 'S', '3z': 'W', '4z': 'N' }
 const seatWindKind = (seat, dealer) => ['1z', '2z', '3z', '4z'][(seat - dealer + 4) % 4]
@@ -155,7 +196,7 @@ function emoteSx(direction) {
 // Seat header: wind, name, score, dealer/turn/riichi markers. `emote` is a
 // transient { emoji, id } reaction that drifts from the tag toward the center
 // (per `emoteDir`) and fades.
-export function SeatTag({ seat, name, score, isDealer, isTurn, inRiichi, dealer, scoreDelta, showScore = true, emote, emoteDir = 'up', onEmote, waits }) {
+export function SeatTag({ seat, name, score, isDealer, isTurn, inRiichi, dealer, scoreDelta, showScore = true, emote, emoteDir = 'up', onEmote, waits, timer }) {
   // The riichi stick; for your own seat (`waits` provided) hovering it reveals
   // what you're waiting on. Opponents' tags pass no waits, so nothing leaks.
   const stick = (
@@ -192,6 +233,7 @@ export function SeatTag({ seat, name, score, isDealer, isTurn, inRiichi, dealer,
           color: isDealer ? '#1a1a1a' : '#fff'
         }}
       />
+      {timer && <TurnTimer key={timer.token} remaining={timer.remaining} bank={timer.bank} />}
       <Box sx={{ minWidth: 0 }}>
         <Typography variant="body2" noWrap sx={{ fontWeight: 600, maxWidth: 120 }}>
           {name}

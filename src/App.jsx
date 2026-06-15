@@ -50,7 +50,7 @@ function seenInfo(view, kind) {
 function GameSession({ config, onLeave }) {
   const {
     view, roster, chat, emotes, status, isHost, canStart, net, warning, error, dismissError,
-    akaDora, setAkaDora, matchLength, setMatchLength, sendAction, startGame, goNextRound, sendChat, sendEmote
+    akaDora, setAkaDora, matchLength, setMatchLength, timeLimit, setTimeLimit, sendAction, startGame, goNextRound, sendChat, sendEmote
   } = useGame(config)
 
   const inGame = !!view
@@ -132,6 +132,8 @@ function GameSession({ config, onLeave }) {
               onToggleAka={setAkaDora}
               matchLength={matchLength}
               onChangeMatchLength={setMatchLength}
+              timeLimit={timeLimit}
+              onChangeTimeLimit={setTimeLimit}
               chat={chat}
               onSend={sendChat}
               status={status}

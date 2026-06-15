@@ -122,6 +122,7 @@ export default function GameBoard({ view, isHost, sendAction, goNextRound, emote
                   waits={view.yourWaits}
                   emote={emotes[you]}
                   onEmote={sendEmote}
+                  timer={view.timer?.[you] || null}
                 />
                 <Hand
                   tiles={view.hands[you]}
