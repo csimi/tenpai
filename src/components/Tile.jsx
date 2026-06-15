@@ -99,7 +99,11 @@ export default function Tile({
         '&:hover': clickable ? { borderColor: '#e0b343' } : {}
       }}
     >
-      {/* Portrait face, centered in the (possibly rotated) body via calc(). */}
+      {/* Portrait face, centered in the (possibly rotated) body via calc().
+          pointerEvents none keeps the body Box the hit target: Safari treats the
+          injected <svg> as the click target and doesn't bubble a click from it to
+          React's delegated onClick, so taps over the face would otherwise do
+          nothing. Routing all pointer events to the body fixes click and hover. */}
       <Box
         sx={{
           position: 'absolute',
@@ -109,7 +113,8 @@ export default function Tile({
           top: `calc((${innerH} - ${faceH}) / 2)`,
           transform: rotation ? `rotate(${rotation}deg)` : 'none',
           transformOrigin: 'center',
-          display: 'flex'
+          display: 'flex',
+          pointerEvents: 'none'
         }}
       >
         <TileFace tile={tile} facedown={facedown} />
