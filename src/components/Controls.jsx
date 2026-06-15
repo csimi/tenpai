@@ -65,13 +65,13 @@ export default function Controls({
   }
 
   if (buttons.length === 0) {
-    // A call window is open but we have no (further) action — either we've
-    // already answered or another seat is deciding. Show that we're waiting so a
-    // declared call (e.g. ron) doesn't look like it was ignored.
-    if (view.callPending) {
+    // A call window is open but we have no (further) action. If we just declared
+    // a call (e.g. ron), confirm it registered so it doesn't look ignored;
+    // otherwise it's simply another seat's turn to decide — say nothing.
+    if (view.callPending && view.callResponded) {
       return (
         <Typography variant="body2" sx={{ color: '#cdbf94' }}>
-          {view.callResponded ? 'Call registered — waiting for other players…' : 'Waiting for other players…'}
+          Call registered…
         </Typography>
       )
     }

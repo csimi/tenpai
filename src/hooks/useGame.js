@@ -3,9 +3,33 @@ import { createConnection, selfId } from '../net/network.js'
 import {
   createGame, startRound, applyAction, viewFor, nextRound
 } from '../game/engine.js'
+import { botTurnAction, botCallResponse } from '../game/bot.js'
 
 const MAX_PLAYERS = 4
 const clone = (value) => JSON.parse(JSON.stringify(value))
+
+// How long a bot waits before acting, so its moves are watchable.
+const BOT_DELAY = 5000
+
+// Where the human players sit so they're spread as far apart as possible — with
+// two humans they face each other (seats 0 and 2) and the bots take the sides.
+const HUMAN_SEATS = { 1: [0], 2: [0, 2], 3: [0, 1, 2], 4: [0, 1, 2, 3] }
+
+// Build the final length-4 seating from a lobby roster: humans spread out per
+// HUMAN_SEATS (host kept at seat 0), every remaining seat filled by a bot.
+function buildSeating(roster) {
+  const humans = roster.filter((player) => !player.bot)
+  // Keep the host at the front so it lands on seat 0 (a stable, familiar anchor).
+  humans.sort((left, right) => (left.id === selfId ? -1 : right.id === selfId ? 1 : 0))
+  const seats = new Array(MAX_PLAYERS).fill(null)
+  const placement = HUMAN_SEATS[humans.length] || [0, 1, 2, 3]
+  humans.forEach((player, idx) => { seats[placement[idx]] = player })
+  let botNumber = 1
+  for (let seat = 0; seat < MAX_PLAYERS; seat++) {
+    if (!seats[seat]) seats[seat] = { id: `bot-${seat}`, name: `Bot ${botNumber++}`, bot: true }
+  }
+  return seats
+}
 
 // Host election: every peer that enters a room is initially 'electing'. After a
 // short settle window each peer either becomes the host (it heard no existing
@@ -45,6 +69,8 @@ export function useGame({ roomId, name }) {
   const reachedHostRef = useRef(false)
   const viewRef = useRef(null)
   viewRef.current = view // latest view, for reading own seat in callbacks
+  const botTimerRef = useRef(null) // host only: pending bot move
+  const runBotsRef = useRef(() => {}) // host only: bot-driver, set below
 
   const setRoleSafe = useCallback((next) => {
     roleRef.current = next
@@ -74,6 +100,8 @@ export function useGame({ roomId, name }) {
     if (!conn || !game) return
     try {
       for (const player of rosterRef.current) {
+        // Bots have no peer to receive a view; they're driven straight from state.
+        if (player.bot) continue
         const personalized = viewFor(game, player.id)
         if (player.id === selfId) setView(clone(personalized))
         else conn.sendView(clone(personalized), player.id)
@@ -81,6 +109,8 @@ export function useGame({ roomId, name }) {
     } catch (err) {
       fail('Broadcast failed', err)
     }
+    // After every state change, let any bot whose turn (or call) it is act.
+    runBotsRef.current()
   }, [fail])
 
   const broadcastRoster = useCallback(() => {
@@ -91,12 +121,16 @@ export function useGame({ roomId, name }) {
   }, [])
 
   const startGame = useCallback(() => {
-    if (!isHostRef.current || rosterRef.current.length !== MAX_PLAYERS) return
+    if (!isHostRef.current || gameRef.current) return
     try {
-      const players = rosterRef.current.map((player) => ({ id: player.id, name: player.name }))
+      // Seat the humans (spread apart) and fill the empty seats with bots.
+      const seating = buildSeating(rosterRef.current)
+      rosterRef.current = seating
+      setRoster(seating.slice())
+      const players = seating.map((player) => ({ id: player.id, name: player.name }))
       const game = startRound(createGame(players, { aka: akaDora }))
       gameRef.current = game
-      connRef.current.sendStart({ players: rosterRef.current })
+      connRef.current.sendStart({ players: seating })
       broadcast()
     } catch (err) {
       fail('Failed to start game', err)
@@ -112,6 +146,51 @@ export function useGame({ roomId, name }) {
       fail('Failed to advance round', err)
     }
   }, [broadcast, fail])
+
+  // ---- bot driver (host only) ----
+  // Inspect the authoritative state and, if the seat that must act next is a bot
+  // (its turn to discard, or a pending call it must answer), schedule that move
+  // after a short delay. Applying it broadcasts, which calls back in here for the
+  // following bot move — so one scheduled timer chains the whole bot sequence.
+  const runBots = useCallback(() => {
+    if (!isHostRef.current) return
+    const game = gameRef.current
+    if (!game || game.phase !== 'playing') return
+    const roster = rosterRef.current
+
+    let pending = null
+    if (game.state === 'discard' && roster[game.turn]?.bot) {
+      pending = { seat: game.turn, kind: 'turn' }
+    } else if (game.state === 'callWait' && game.pendingCalls) {
+      for (const [seatStr, entry] of Object.entries(game.pendingCalls)) {
+        const seat = Number(seatStr)
+        if (!entry.responded && roster[seat]?.bot) { pending = { seat, kind: 'call' }; break }
+      }
+    }
+    if (!pending) return
+
+    clearTimeout(botTimerRef.current)
+    botTimerRef.current = setTimeout(() => {
+      const current = gameRef.current
+      if (!current || current.phase !== 'playing') return
+      try {
+        let action
+        if (pending.kind === 'turn') {
+          if (current.state !== 'discard' || current.turn !== pending.seat) { runBotsRef.current(); return }
+          action = botTurnAction(current, pending.seat)
+        } else {
+          const entry = current.pendingCalls?.[pending.seat]
+          if (!entry || entry.responded) { runBotsRef.current(); return }
+          action = { type: 'callResponse', response: botCallResponse(entry.options) }
+        }
+        gameRef.current = applyAction(current, pending.seat, action)
+        broadcast()
+      } catch (err) {
+        fail('Bot action failed', err)
+      }
+    }, BOT_DELAY)
+  }, [broadcast, fail])
+  runBotsRef.current = runBots
 
   // ---- action dispatch (works for host and clients) ----
   const sendAction = useCallback((action) => {
@@ -232,7 +311,21 @@ export function useGame({ roomId, name }) {
         },
         onPeerLeave: (peerId) => {
           claims.delete(peerId)
-          if (isHostRef.current && !gameRef.current) {
+          if (!isHostRef.current) return
+          const game = gameRef.current
+          if (game) {
+            // Mid-game: hand the departed player's seat to a bot rather than
+            // stalling the round (the engine can't drop a seat).
+            const seat = game.players.findIndex((player) => player.id === peerId)
+            if (seat >= 0 && !rosterRef.current[seat]?.bot) {
+              rosterRef.current = rosterRef.current.map((player, idx) =>
+                (idx === seat ? { ...player, bot: true } : player))
+              // Reflect the takeover in the name everyone sees.
+              game.players[seat] = { ...game.players[seat], name: `${game.players[seat].name} (AI)` }
+              broadcastRoster()
+              broadcast() // re-send the renamed roster's views and wake the bot driver
+            }
+          } else {
             rosterRef.current = rosterRef.current.filter((player) => player.id !== peerId)
             broadcastRoster()
           }
@@ -353,7 +446,11 @@ export function useGame({ roomId, name }) {
 
       const elapsed = Date.now() - startedAt
       let nextWarning = null
-      if (total > 0 && open === 0 && elapsed > RELAY_TIMEOUT) {
+      // These are lobby/matchmaking warnings; once a game is underway they no
+      // longer apply (a solo game filled with bots legitimately has no peers).
+      if (viewRef.current) {
+        nextWarning = null
+      } else if (total > 0 && open === 0 && elapsed > RELAY_TIMEOUT) {
         nextWarning = 'Can’t reach any matchmaking relay. Check your network/VPN/firewall.'
       } else if (peers === 0 && elapsed > PEER_TIMEOUT) {
         nextWarning = 'No other players found yet. Everyone must use the exact same room code — and stay on this screen.'
@@ -378,12 +475,14 @@ export function useGame({ roomId, name }) {
       clearTimeout(settleTimer)
       clearInterval(heartbeat)
       clearInterval(monitor)
+      clearTimeout(botTimerRef.current)
       try { conn.leave() } catch { /* ignore */ }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [roomId, name])
 
-  const canStart = role === 'host' && !gameRef.current && roster.length === MAX_PLAYERS
+  // The host can start at any time; empty seats are filled with bots.
+  const canStart = role === 'host' && !gameRef.current && roster.length >= 1
 
   return {
     view,

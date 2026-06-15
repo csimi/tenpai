@@ -86,7 +86,7 @@ function GameSession({ config, onLeave }) {
         >
           <Typography variant="h6" sx={{ color: '#e0b343', fontWeight: 800 }}>Tenpai</Typography>
           <Typography variant="body2" sx={{ color: '#cdbf94' }}>Room {config.roomId}</Typography>
-          <ConnectionStatus net={net} />
+          <ConnectionStatus net={net} inGame={inGame} />
           {inGame && <GameStatus view={view} />}
           <Box sx={{ flex: 1 }} />
           <Button color="inherit" size="small" onClick={() => setConfirmLeave(true)}>Leave</Button>

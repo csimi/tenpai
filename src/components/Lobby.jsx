@@ -41,7 +41,7 @@ export default function Lobby({ roomId, roster, isHost, canStart, onStart, akaDo
             return (
               <Paper key={seat} variant="outlined" sx={{ p: 1, display: 'flex', alignItems: 'center', gap: 1, opacity: player ? 1 : 0.4 }}>
                 <Chip size="small" label={seat === 0 ? 'Host' : `P${seat + 1}`} color={seat === 0 ? 'primary' : 'default'} />
-                <Typography>{player ? player.name : 'Waiting…'}</Typography>
+                <Typography>{player ? player.name : 'Open — filled by a bot'}</Typography>
               </Paper>
             )
           })}
@@ -60,8 +60,13 @@ export default function Lobby({ roomId, roster, isHost, canStart, onStart, akaDo
               }
             />
             <Button fullWidth variant="contained" size="large" disabled={!canStart} onClick={onStart}>
-              {canStart ? 'Start game' : `Need ${4 - roster.length} more player(s)`}
+              Start game
             </Button>
+            {roster.length < 4 && (
+              <Typography variant="caption" sx={{ display: 'block', textAlign: 'center', mt: 1, color: '#cdbf94' }}>
+                The {4 - roster.length} open seat{roster.length === 3 ? '' : 's'} will be filled by computer players.
+              </Typography>
+            )}
           </>
         ) : (
           <Typography variant="body2" sx={{ textAlign: 'center', color: '#cdbf94', mb: 1 }}>

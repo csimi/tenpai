@@ -2,16 +2,23 @@ import { Box, Tooltip, Typography } from '@mui/material'
 
 // Compact P2P status: a colored dot + short label, derived from relay health
 // and connected player count.
-export default function ConnectionStatus({ net }) {
+export default function ConnectionStatus({ net, inGame = false }) {
   const { peers, relayOpen, relayTotal } = net
-  // `peers` excludes this client; the player count includes you.
+  // `peers` excludes this client; the human player count includes you (bots fill
+  // the remaining seats and aren't peers).
   const players = peers + 1
 
   let color = '#9e9e9e'
   let label = 'Starting…'
   let detail = 'Initializing matchmaking.'
 
-  if (relayTotal === 0) {
+  if (inGame) {
+    // Mid-game, relay/matchmaking status is moot — a solo game filled with bots
+    // simply has no peers. Show a healthy state and the human head-count.
+    color = '#66bb6a'
+    label = players === 1 ? 'Playing' : `${players} players`
+    detail = players === 1 ? 'Game in progress (solo with bots).' : `${players} players connected.`
+  } else if (relayTotal === 0) {
     color = '#9e9e9e'; label = 'Starting…'
   } else if (relayOpen === 0) {
     color = '#ef5350'; label = 'No relay'
