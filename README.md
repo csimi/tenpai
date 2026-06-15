@@ -17,14 +17,18 @@ npm run build    # production build into dist/
 npm test         # run the engine / scoring test suites
 ```
 
-To play, open the app on **four browser tabs/devices**:
+To play, open the app on **up to four browser tabs/devices**:
 
 1. Everyone enters the **same room code** — there's no separate create/join step.
-2. The peers automatically **elect a host** (see below); once all four are in the
-   lobby, the host presses **Start game**.
+2. The peers automatically **elect a host** (see below); the host presses
+   **Start game** whenever ready.
 
-All four tabs must stay open. The elected host runs the authoritative game engine;
-once the game starts the host is fixed, and if the host leaves, the game ends.
+Any empty seats are filled with **computer opponents**, so you can play solo
+against three bots, or with friends and let bots round out the table — with two
+humans they sit **opposite** each other and the bots take the sides. If a player
+drops mid-game, a bot **takes over** their seat. The elected host runs the
+authoritative game engine; once the game starts the host is fixed, and if the
+host leaves, the game ends.
 
 ## How the networking works
 
@@ -55,6 +59,7 @@ src/
     agari.js     winning-hand detection & decomposition (standard / chiitoi / kokushi)
     score.js     yaku detection, fu/han, point calculation, dora counting
     engine.js    host-authoritative state machine + per-player views
+    bot.js       computer-opponent AI (efficiency discards, riichi, calls)
   net/
     network.js   thin transport wrapper over @trystero-p2p/nostr
   hooks/
@@ -85,9 +90,13 @@ test/            node:test suites for the engine & scorer
 
 ## Notes & limitations
 
-- No red-five (aka dora). No nagashi mangan, no abortive draws (kyuushu kyuuhai,
-  four-kan/four-riichi/four-wind aborts), no pao/sekinin-barai.
-- Late joins / reconnection are not supported — all four players join before the
-  host starts, and the host must stay connected.
+- **Red-five (aka dora)** is supported via a host lobby toggle (on by default).
+  No nagashi mangan, no abortive draws (kyuushu kyuuhai, four-kan/four-riichi/
+  four-wind aborts), no pao/sekinin-barai.
+- **Computer opponents** play an efficiency-based game (riichi, tsumo/ron, discard
+  for lowest shanten) but decline pon/chi/kan to stay closed.
+- Late joins / reconnection are not supported — humans join before the host
+  starts (empty seats become bots), and the host must stay connected. A human who
+  drops mid-game is replaced by a bot.
 - Matchmaking uses public Nostr relays; the first connection can take a few
   seconds. Restrictive NATs/firewalls may block WebRTC.

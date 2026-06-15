@@ -35,10 +35,11 @@ src/game/        pure game logic (no React, no network) — covered by test/
   agari.js       winning-hand detection & decomposition (standard/chiitoi/kokushi), tenpai
   score.js       yaku detection, fu/han, points, dora counting
   engine.js      authoritative GameState machine + viewFor() sanitization
+  bot.js         computer-opponent AI (shanten/efficiency discards, riichi, call responses)
 src/net/
   network.js     thin wrapper over @trystero-p2p/nostr (transport only)
 src/hooks/
-  useGame.js     ties engine + network together; host vs client roles, error/connection state
+  useGame.js     ties engine + network together; host vs client roles, bot driver, error/connection state
 src/components/  React + MUI UI
   Tile.jsx / TileFace.jsx   one tile; faces are SVG from the `tilekit` lib (no image assets)
   CenterTable.jsx           center cluster: 4 discard ponds around the score/wall square
@@ -57,11 +58,12 @@ src/App.jsx      Home -> GameSession (AppBar + Lobby/GameBoard); owns the TileHo
 - **Build base path:** `vite.config.js` hardcodes `base: '/tenpai/'` so the production build works as a GitHub Pages project site at `csimi.github.io/tenpai/`. The dev server is unaffected, but `npm run preview` serves under `/tenpai/`. Building for any other host (root domain, different repo name) requires changing this.
 - **Tile art comes from the `tilekit` library** (vector SVG; pin = dot layouts, sou = bamboo with the 1-sou bird, man/honors = Kai brush-stroke kanji via `hanzi-writer-data`, plus the green ribbed face-down back). `TileFace.jsx` calls `tileToSvg`: for face-up tiles with a *transparent* body (no fill/edge/depth) so only the face symbols draw over the ivory body that `Tile.jsx` paints; for face-down it renders tilekit's opaque `'back'` tile instead. `Tile.jsx` still owns the body sizing, drop shadow, and interactive states (selected/highlight/dim/rotated). Note tilekit draws the white dragon (haku) as a blank face, not the old blue frame. Our tile kinds use the rank-first riichi/tenhou standard (`"1m"`, `"5z"` — rank then suit), matching tilekit's notation, so kinds pass straight to `tileToSvg` with no conversion. Tile sizes are responsive `clamp(...vmin...)` in `Tile.jsx` `SIZES`; rotation centering uses CSS `calc()` because dims are CSS expressions, not numbers.
 - **Seat layout is POV-based.** Each player faces the center; tags go on the player's left, melds on their right, discards toward the center — which maps to different screen edges per seat (`PlayerArea.jsx`, `GameBoard.jsx` orientation props).
+- **Bots run on the host.** Empty lobby seats are filled with bot players (`{ bot: true }`, no peer id) when the host starts; `buildSeating` in `useGame.js` spreads humans apart (two humans → seats 0 & 2, bots on the sides). After every `broadcast()`, the host's `runBots` driver checks whether the seat that must act next (a discard turn, or a pending call) is a bot and, if so, schedules its move (`BOT_DELAY`) — applying it re-broadcasts and chains the next bot move. `broadcast()` skips bots (no peer to send a view to). A human who disconnects mid-game is converted in place to a bot (`onPeerLeave`), so the round never stalls. Bot decisions live in `bot.js` and only read the bot's own hand + public board (no cheating); they pass on pon/chi/kan to stay closed.
 - **Tile hover** (tiles-remaining tooltip + highlight of visible copies) uses `TileHoverContext` provided at `GameSession` level (so the header dora indicators participate too). The hovered tile is excluded from its own highlight by `useId` identity, not CSS `:hover` (avoids a mouse-out flicker).
 - Match defaults to **East-only (tonpuusen)**; `createGame(players, { hanchan: true })` for East+South.
 
 ## Limitations (intentional)
 
-No abortive draws (kyuushu kyuuhai, four-kan/riichi/wind), no pao/sekinin-barai, no reconnection or late-join (all four must be present before the host starts, and the host must stay connected).
+No abortive draws (kyuushu kyuuhai, four-kan/riichi/wind), no pao/sekinin-barai, no reconnection or late-join (the host must stay connected). Empty seats are filled with bots at start and a human who drops mid-game is replaced by a bot, so a table no longer needs four humans — but the host can't be replaced.
 
 Red-five (aka) dora **is** supported: a host lobby toggle (default on, `createGame(players, { aka: true })`) swaps one 5 of each suit for its red variant. Red fives use tilekit's `'0m'/'0p'/'0s'` kinds and stay in engine state (hands/melds/discards/wall) for display + aka counting; everything rule-related normalizes via `baseKind()` (`tiles.js`) so a red five is an ordinary five for agari, yaku, calls and furiten, and the scorer adds one "Aka Dora" han per red five in the winning tiles.
