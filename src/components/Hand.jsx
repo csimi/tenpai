@@ -69,9 +69,15 @@ export default function Hand({ tiles, drawnTile, onDiscard, riichiMode, riichiTi
       <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
         {resting.map((tile, idx) => renderTile(tile, idx))}
       </Box>
-      {drawn && (
+      {drawn ? (
         <Box sx={{ ml: 1.5 }}>
           {renderTile(drawn, 'drawn')}
+        </Box>
+      ) : (
+        // Reserve the drawn-tile slot off-turn so the hand keeps the same width
+        // whether or not you're holding a draw (no shift when the turn passes).
+        <Box sx={{ ml: 1.5, visibility: 'hidden' }} aria-hidden>
+          <Tile size="lg" facedown />
         </Box>
       )}
     </Box>

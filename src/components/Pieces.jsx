@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Box, Typography, Chip, Tooltip } from '@mui/material'
-import Tile from './Tile.jsx'
+import Tile, { SIZES } from './Tile.jsx'
 import EmojiPicker from './EmojiPicker.jsx'
 import { doraFromIndicator } from '../game/tiles.js'
 
@@ -57,6 +57,13 @@ const seatWindKind = (seat, dealer) => ['1z', '2z', '3z', '4z'][(seat - dealer +
 export function Discards({ discards, lastIndex, orient = 0, size = 'sm' }) {
   const tall = orient === 90 || orient === 270
   const rows = Math.max(1, Math.ceil(discards.length / 6))
+  // Reserve a stable 6-wide × 3-deep footprint so the pond keeps the same size
+  // (and the whole table keeps the same scale) as discards accumulate, instead
+  // of growing tile-by-tile. minmax holds empty tracks at their natural tile
+  // size while still letting a sideways riichi tile expand its own track.
+  const { w: tileW, h: tileH } = SIZES[size] || SIZES.sm
+  const along = `repeat(6, minmax(${tileW}, auto))`
+  const across = `repeat(${Math.max(3, rows)}, minmax(${tileH}, auto))`
   // Map a discard index to a 1-based grid cell. `pos` runs along a row (the
   // player's left→right); `row` is which row (0 = first, furthest from player).
   const placeAt = (idx) => {
@@ -73,8 +80,8 @@ export function Discards({ discards, lastIndex, orient = 0, size = 'sm' }) {
     <Box
       sx={{
         display: 'grid',
-        gridTemplateColumns: tall ? undefined : 'repeat(6, auto)',
-        gridTemplateRows: tall ? 'repeat(6, auto)' : undefined,
+        gridTemplateColumns: tall ? across : along,
+        gridTemplateRows: tall ? along : across,
         gap: '2px',
         justifyContent: 'start',
         alignContent: 'start'

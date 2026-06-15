@@ -100,15 +100,20 @@ export default function GameBoard({ view, isHost, sendAction, goNextRound, emote
 
           {/* Self: action buttons, then [tag] [hand] [melds] */}
           <Box sx={{ ...cellSx, gridColumn: '1 / -1', gridRow: 3, flexDirection: 'column', gap: 1 }}>
-            <Controls
-              view={view}
-              riichiMode={riichiMode}
-              onToggleRiichi={() => setRiichiMode((mode) => !mode)}
-              onTsumo={() => sendAction({ type: 'tsumo' })}
-              onKanClosed={(kan) => sendAction({ type: 'kan', kind: kan.kind, tile: kan.tile })}
-              onCall={(call) => sendAction({ type: 'callResponse', response: call })}
-              onPass={() => sendAction({ type: 'callResponse', response: { type: 'pass' } })}
-            />
+            {/* Reserve a constant row for the action buttons so the hand below
+                doesn't shift (and rescale the table) when they appear/clear. The
+                height fits a button holding a small tile (Ron/Pon/Chi previews). */}
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 'calc(clamp(22px, 3.4vmin, 39px) + 16px)' }}>
+              <Controls
+                view={view}
+                riichiMode={riichiMode}
+                onToggleRiichi={() => setRiichiMode((mode) => !mode)}
+                onTsumo={() => sendAction({ type: 'tsumo' })}
+                onKanClosed={(kan) => sendAction({ type: 'kan', kind: kan.kind, tile: kan.tile })}
+                onCall={(call) => sendAction({ type: 'callResponse', response: call })}
+                onPass={() => sendAction({ type: 'callResponse', response: { type: 'pass' } })}
+              />
+            </Box>
             {Array.isArray(view.hands?.[you]) && (
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                 <SeatTag
