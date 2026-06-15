@@ -2,7 +2,7 @@
 // Produces every valid parse of a 14-tile hand so the scorer can pick the
 // highest-scoring interpretation.
 
-import { ALL_KINDS, isTerminalOrHonor } from './tiles.js'
+import { ALL_KINDS, isTerminalOrHonor, baseKind } from './tiles.js'
 
 // Fast index <-> kind mapping. Index layout:
 //   0..8   1m..9m
@@ -19,7 +19,8 @@ const rankInSuit = (idx) => idx % 9 // 0-based; only meaningful for numeric tile
 
 export function countsFromTiles(tiles) {
   const counts = new Array(34).fill(0)
-  for (const tile of tiles) counts[KIND_INDEX[tile]]++
+  // Red fives count as their ordinary five for decomposition.
+  for (const tile of tiles) counts[KIND_INDEX[baseKind(tile)]]++
   return counts
 }
 
@@ -125,7 +126,7 @@ export function findAgari(concealed, melds, winningTile) {
   if (melds.length === 0 && concealed.length === 14) {
     const chiitoi = chiitoiParse(counts)
     if (chiitoi) parses.push(chiitoi)
-    const kokushi = kokushiParse(counts, KIND_INDEX[winningTile])
+    const kokushi = kokushiParse(counts, KIND_INDEX[baseKind(winningTile)])
     if (kokushi) parses.push(kokushi)
   }
   return parses
@@ -139,10 +140,10 @@ export const isWinningHand = (concealed, melds, winningTile) =>
 export function waitingTiles(concealed, melds) {
   const waits = []
   for (const candidate of ALL_KINDS) {
-    // can't draw a 5th copy
-    const inHand = concealed.filter((tile) => tile === candidate).length
+    // can't draw a 5th copy (red fives count as their ordinary five)
+    const inHand = concealed.filter((tile) => baseKind(tile) === candidate).length
     const inMelds = melds.reduce(
-      (sum, meld) => sum + meld.tiles.filter((tile) => tile === candidate).length,
+      (sum, meld) => sum + meld.tiles.filter((tile) => baseKind(tile) === candidate).length,
       0
     )
     if (inHand + inMelds >= 4) continue

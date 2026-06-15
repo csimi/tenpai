@@ -44,6 +44,10 @@ test('ron is offered on a discard and scores tanyao + dora', () => {
   // seat2 tenpai on a tanyao shape waiting 5p; seat1 discards 5p into it.
   state.hands[2] = ['2m','3m','4m','5m','6m','7m','2p','3p','4p','6s','7s','8s','5p']
   state.melds[2] = []
+  // Pin the other seats to honour junk that can never ron 5p, so only seat 2 is
+  // offered the call (otherwise a randomly-dealt seat could also be tenpai on 5p).
+  state.hands[0] = ['1z','1z','2z','2z','3z','3z','4z','4z','5z','5z','6z','6z','7z']
+  state.hands[3] = ['1z','1z','2z','2z','3z','3z','4z','4z','5z','5z','6z','6z','7z']
   state.furiten = [false, false, false, false]
   state.tempFuriten = [false, false, false, false]
   state.riichi = [false, false, false, false]

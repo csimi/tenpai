@@ -31,7 +31,8 @@ export default function Tile({
   rotated = false,
   orient = null,
   dim = false,
-  noMatchHighlight = false
+  noMatchHighlight = false,
+  noHover = false
 }) {
   const dims = SIZES[size] || SIZES.md
   // `orient` is the face rotation in degrees (0/90/180/270) so a tile can be
@@ -59,12 +60,13 @@ export default function Tile({
   // Highlight other visible copies of the hovered kind — but not tiles in the
   // player's own hand (noMatchHighlight) nor the exact tile being hovered
   // (matched by identity, so there's no frame-gap flicker on mouse-out).
-  const matched = !!hover && !facedown && !noMatchHighlight &&
+  const matched = !!hover && !facedown && !noMatchHighlight && !noHover &&
     hover.hovered?.kind === tile && hover.hovered?.id !== tileId
 
   // Face-down tiles have no known kind, so they never participate in the
-  // tiles-remaining hover (their `tile` prop is usually undefined).
-  const interactive = !!hover && !facedown
+  // tiles-remaining hover (their `tile` prop is usually undefined). `noHover`
+  // opts a tile out entirely (e.g. a decorative example shown inside a game).
+  const interactive = !!hover && !facedown && !noHover
 
   const body = (
     <Box

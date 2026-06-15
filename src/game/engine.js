@@ -10,7 +10,7 @@
 // honba and riichi sticks. Defaults to an East-only match (tonpuusen).
 
 import {
-  buildWall, doraFromIndicator, sortTiles, removeOne, rankOf, suitOf
+  buildWall, doraFromIndicator, sortTiles, removeOne, rankOf, suitOf, baseKind
 } from './tiles.js'
 import { waitingTiles, isWinningHand } from './agari.js'
 import { scoreHand } from './score.js'
@@ -21,6 +21,15 @@ const RIICHI_BET = 1000
 
 const seatWindFor = (seat, dealer) => SEAT_WINDS[(seat - dealer + 4) % 4]
 const nextSeat = (seat) => (seat + 1) % 4
+
+// Remove one tile whose base kind matches `wanted` (so a red five satisfies a
+// request for its ordinary five), returning [newTiles, removedTile|null]. Used
+// when forming melds so the actual tile (red or not) ends up in the meld.
+function takeByBase(tiles, wanted) {
+  const idx = tiles.findIndex((tile) => baseKind(tile) === wanted)
+  if (idx === -1) return [tiles, null]
+  return [tiles.slice(0, idx).concat(tiles.slice(idx + 1)), tiles[idx]]
+}
 
 // ---- Game / round setup ----------------------------------------------------
 
@@ -35,6 +44,7 @@ export function createGame(players, options = {}) {
     honba: 0,
     riichiSticks: 0,
     maxRoundWind: options.hanchan ? '2z' : '1z', // tonpuusen by default
+    aka: !!options.aka, // red fives (akadora)
     result: null,
     log: [],
     seed: options.seed
@@ -42,7 +52,7 @@ export function createGame(players, options = {}) {
 }
 
 export function startRound(game) {
-  const wall = buildWall()
+  const wall = buildWall(Math.random, game.aka)
   // Dead wall = last 14 tiles. Dora indicators are positions within it.
   const deadWall = wall.splice(wall.length - 14, 14)
   // Indicator at deadWall[4]; ura at deadWall[5]; kan replacements drawn from
@@ -178,19 +188,20 @@ export function selfOptions(state, seat) {
     if (riichiDiscards.length > 0) options.riichi = riichiDiscards
   }
 
-  // Kan options (closed kan of 4, or added kan onto an existing pon).
+  // Kan options (closed kan of 4, or added kan onto an existing pon). Counts are
+  // by base kind so four fives that include the red one still form a kan.
   const kans = []
   const counts = {}
-  for (const tile of hand) counts[tile] = (counts[tile] || 0) + 1
-  for (const tile of Object.keys(counts)) {
-    if (counts[tile] === 4) {
+  for (const tile of hand) counts[baseKind(tile)] = (counts[baseKind(tile)] || 0) + 1
+  for (const base of Object.keys(counts)) {
+    if (counts[base] === 4) {
       // Cannot make an ankan that would change a riichi wait.
-      if (state.riichi[seat] && !riichiKanAllowed(hand, melds, tile)) continue
-      kans.push({ kind: 'closed', tile })
+      if (state.riichi[seat] && !riichiKanAllowed(hand, melds, base)) continue
+      kans.push({ kind: 'closed', tile: base })
     }
   }
   for (const meld of melds) {
-    if (meld.type === 'pon' && hand.includes(meld.tiles[0]) && !state.riichi[seat]) {
+    if (meld.type === 'pon' && hand.some((tile) => baseKind(tile) === baseKind(meld.tiles[0])) && !state.riichi[seat]) {
       kans.push({ kind: 'added', tile: meld.tiles[0] })
     }
   }
@@ -199,10 +210,12 @@ export function selfOptions(state, seat) {
   return options
 }
 
-// An ankan while in riichi is only legal if it doesn't alter the wait.
+// An ankan while in riichi is only legal if it doesn't alter the wait. `tile` is
+// a base kind; normalize the hand so a red five is treated as its ordinary five.
 function riichiKanAllowed(hand, melds, tile) {
-  const before = waitingTiles(removeOne(hand, tile), melds).slice().sort().join()
-  const withKan = hand.filter((candidate) => candidate !== tile)
+  const baseHand = hand.map(baseKind)
+  const before = waitingTiles(removeOne(baseHand, tile), melds).slice().sort().join()
+  const withKan = baseHand.filter((candidate) => candidate !== tile)
   const after = waitingTiles(withKan, [...melds, { type: 'kan', tiles: [tile, tile, tile, tile], concealed: true }]).slice().sort().join()
   return before === after
 }
@@ -222,9 +235,10 @@ function computeCalls(state, discarder, tile) {
       if (scored.valid) options.ron = true
     }
 
-    // Pon / open kan — any seat, needs 2 (pon) or 3 (kan) matching tiles.
+    // Pon / open kan — any seat, needs 2 (pon) or 3 (kan) matching tiles (by base
+    // kind, so a red five counts toward matching an ordinary five and vice versa).
     if (!state.riichi[seat]) {
-      const matching = hand.filter((candidate) => candidate === tile).length
+      const matching = hand.filter((candidate) => baseKind(candidate) === baseKind(tile)).length
       if (matching >= 2) options.pon = true
       if (matching >= 3 && state.rinshanDrawn < 4) options.kan = true
 
@@ -245,9 +259,11 @@ function computeCalls(state, discarder, tile) {
 function possibleChi(hand, tile) {
   if (suitOf(tile) === 'z') return []
   const suit = suitOf(tile)
-  const rank = rankOf(tile)
-  const at = (offset) => `${rank + offset}${suit}`
-  const has = (offset) => hand.includes(at(offset))
+  const rank = rankOf(tile) // 5 for a red five
+  const at = (offset) => `${rank + offset}${suit}` // base kinds
+  const has = (offset) => hand.some((candidate) => baseKind(candidate) === at(offset))
+  // The discarded tile keeps its actual kind in its slot (so a red discard shows
+  // red); the neighbour slots are base kinds the holder may satisfy with a red.
   const sequences = []
   if (rank >= 3 && has(-2) && has(-1)) sequences.push([at(-2), at(-1), tile])
   if (rank >= 2 && rank <= 8 && has(-1) && has(1)) sequences.push([at(-1), tile, at(1)])
@@ -259,12 +275,12 @@ function possibleChi(hand, tile) {
 // temporarily/permanently furiten from passing a winning tile.
 function isFuriten(state, seat, ronTile) {
   if (state.tempFuriten[seat] || state.furiten[seat]) return true
-  const waits = waitingTiles(state.hands[seat], state.melds[seat])
+  const waits = waitingTiles(state.hands[seat], state.melds[seat]) // base kinds
   for (const wait of waits) {
-    if (state.discards[seat].some((discard) => discard.tile === wait)) return true
+    if (state.discards[seat].some((discard) => baseKind(discard.tile) === wait)) return true
   }
   // Can't ron a tile you'd be passing this turn either (caller checks waits).
-  return !waits.includes(ronTile)
+  return !waits.includes(baseKind(ronTile))
 }
 
 function buildWinContext(state, seat, winningTile, isTsumo) {
@@ -345,8 +361,8 @@ function doDiscard(state, seat, tile, declareRiichi) {
 }
 
 function refreshFuriten(state, seat) {
-  const waits = waitingTiles(state.hands[seat], state.melds[seat])
-  const inDiscards = waits.some((wait) => state.discards[seat].some((discard) => discard.tile === wait))
+  const waits = waitingTiles(state.hands[seat], state.melds[seat]) // base kinds
+  const inDiscards = waits.some((wait) => state.discards[seat].some((discard) => baseKind(discard.tile) === wait))
   // Riichi furiten is permanent for the round.
   if (state.riichi[seat]) state.furiten[seat] = state.furiten[seat] || inDiscards
   else state.furiten[seat] = inDiscards
@@ -374,33 +390,43 @@ function doSelfKan(state, seat, action) {
   if (state.state !== 'discard' || state.turn !== seat || !state.drawnTile) return state
   const { kind, tile } = action
   if (kind === 'closed') {
-    const count = state.hands[seat].filter((candidate) => candidate === tile).length
-    if (count < 4) return state
-    if (state.riichi[seat] && !riichiKanAllowed(state.hands[seat], state.melds[seat], tile)) return state
-    for (let removed = 0; removed < 4; removed++) state.hands[seat] = removeOne(state.hands[seat], tile)
-    state.melds[seat].push({ type: 'kan', tiles: [tile, tile, tile, tile], concealed: true, from: seat })
+    // `tile` is a base kind; gather the four actual fives (red included).
+    let hand = state.hands[seat]
+    const tiles = []
+    for (let removed = 0; removed < 4; removed++) {
+      const [rest, taken] = takeByBase(hand, baseKind(tile))
+      hand = rest
+      if (taken) tiles.push(taken)
+    }
+    if (tiles.length < 4) return state
+    if (state.riichi[seat] && !riichiKanAllowed(state.hands[seat], state.melds[seat], baseKind(tile))) return state
+    state.hands[seat] = hand
+    state.melds[seat].push({ type: 'kan', tiles, concealed: true, from: seat })
     state.drawnTile = null
     state.anyCallMade = true
     revealKanDora(state) // ankan reveals immediately
     return drawRinshan(state)
   }
   if (kind === 'added') {
-    const meld = state.melds[seat].find((candidate) => candidate.type === 'pon' && candidate.tiles[0] === tile)
-    if (!meld || !state.hands[seat].includes(tile)) return state
-    // Chankan window: other players may ron this tile.
-    state.hands[seat] = removeOne(state.hands[seat], tile)
+    const meld = state.melds[seat].find((candidate) => candidate.type === 'pon' && baseKind(candidate.tiles[0]) === baseKind(tile))
+    const handIdx = state.hands[seat].findIndex((candidate) => baseKind(candidate) === baseKind(tile))
+    if (!meld || handIdx === -1) return state
+    // Chankan window: other players may ron this tile (the actual added tile,
+    // which may be the red five).
+    const addedTile = state.hands[seat][handIdx]
+    state.hands[seat] = removeOne(state.hands[seat], addedTile)
     meld.type = 'kan'
-    meld.tiles = [tile, tile, tile, tile]
+    meld.tiles = [...meld.tiles, addedTile]
     meld.added = true
     state.drawnTile = null
-    state.chankanTile = tile
+    state.chankanTile = addedTile
 
     const robbers = []
     for (let other = 0; other < 4; other++) {
       if (other === seat) continue
-      if (isWinningHand([...state.hands[other], tile], state.melds[other], tile) && !isFuriten(state, other, tile)) {
-        const scored = scoreHand(buildWinContext(state, other, tile, false))
-        if (scored.valid) robbers.push({ seat: other, from: seat, scored, winningTile: tile, isTsumo: false })
+      if (isWinningHand([...state.hands[other], addedTile], state.melds[other], addedTile) && !isFuriten(state, other, addedTile)) {
+        const scored = scoreHand(buildWinContext(state, other, addedTile, false))
+        if (scored.valid) robbers.push({ seat: other, from: seat, scored, winningTile: addedTile, isTsumo: false })
       }
     }
     if (robbers.length > 0) {
@@ -521,17 +547,33 @@ function performCall(state, chosen, discard) {
   // Clear temp furiten for everyone on a fresh call action.
   state.tempFuriten = [false, false, false, false]
 
+  // Melds keep the actual tiles taken from the hand (and the actual discard), so
+  // any red five among them is preserved for display and aka-dora counting.
   if (chosen.type === 'pon') {
-    state.hands[seat] = removeOne(removeOne(state.hands[seat], tile), tile)
-    state.melds[seat].push({ type: 'pon', tiles: [tile, tile, tile], concealed: false, from: discard.seat })
+    let hand = state.hands[seat]
+    const tiles = [tile]
+    for (let taken = 0; taken < 2; taken++) {
+      const [rest, removed] = takeByBase(hand, baseKind(tile))
+      hand = rest
+      if (removed) tiles.push(removed)
+    }
+    state.hands[seat] = hand
+    state.melds[seat].push({ type: 'pon', tiles, concealed: false, from: discard.seat })
     state.turn = seat
     state.drawnTile = null
     state.state = 'discard'
     return state
   }
   if (chosen.type === 'kan') {
-    state.hands[seat] = removeOne(removeOne(removeOne(state.hands[seat], tile), tile), tile)
-    state.melds[seat].push({ type: 'kan', tiles: [tile, tile, tile, tile], concealed: false, from: discard.seat })
+    let hand = state.hands[seat]
+    const tiles = [tile]
+    for (let taken = 0; taken < 3; taken++) {
+      const [rest, removed] = takeByBase(hand, baseKind(tile))
+      hand = rest
+      if (removed) tiles.push(removed)
+    }
+    state.hands[seat] = hand
+    state.melds[seat].push({ type: 'kan', tiles, concealed: false, from: discard.seat })
     state.turn = seat
     state.drawnTile = null
     revealKanDora(state)
@@ -539,11 +581,17 @@ function performCall(state, chosen, discard) {
   }
   if (chosen.type === 'chi') {
     let hand = state.hands[seat]
+    const tiles = [tile]
+    let usedDiscard = false
     for (const meldTile of chosen.tiles) {
-      if (meldTile !== tile) hand = removeOne(hand, meldTile)
+      // Skip the one slot that the discard fills; take the rest from the hand.
+      if (!usedDiscard && baseKind(meldTile) === baseKind(tile)) { usedDiscard = true; continue }
+      const [rest, removed] = takeByBase(hand, baseKind(meldTile))
+      hand = rest
+      if (removed) tiles.push(removed)
     }
     state.hands[seat] = hand
-    state.melds[seat].push({ type: 'chi', tiles: sortTiles(chosen.tiles), concealed: false, from: discard.seat })
+    state.melds[seat].push({ type: 'chi', tiles: sortTiles(tiles), concealed: false, from: discard.seat })
     state.turn = seat
     state.drawnTile = null
     state.state = 'discard'

@@ -12,9 +12,11 @@ test('randomized full-round simulation never throws or stalls', () => {
   let rounds = 0, wins = 0, draws = 0
 
   for (let game = 0; game < GAMES; game++) {
+    // Run half the games with red fives (akadora) so those engine paths — red
+    // tiles flowing through draws, calls, kans and wins — are exercised too.
     let state = startRound(createGame([
       { id: 'a', name: 'A' }, { id: 'b', name: 'B' }, { id: 'c', name: 'C' }, { id: 'd', name: 'D' }
-    ]))
+    ], { aka: game % 2 === 0 }))
     let steps = 0
     while (state.phase === 'playing' && steps < 2000) {
       steps++

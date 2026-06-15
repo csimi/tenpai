@@ -384,6 +384,11 @@ const STEPS = [
             desc="The same run in all three suits at once."
             tiles={['3m', '4m', '5m', '3p', '4p', '5p', '3s', '4s', '5s']}
           />
+          <LabeledTiles
+            name="Dora & red fives — bonus han"
+            desc="Dora aren't yaku, but each one in your hand adds a han once you already have a yaku. A flipped indicator marks the round's dora, and red fives (one per suit, if the host enables them) are always worth a bonus han."
+            tiles={['0m', '0p', '0s']}
+          />
         </Box>
       </Box>
     )

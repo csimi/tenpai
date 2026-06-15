@@ -3,7 +3,8 @@
 
 import { findAgari, kindOfIndex } from './agari.js'
 import {
-  suitOf, rankOf, isHonor, isDragon, isTerminalOrHonor, isTerminal, isGreen
+  suitOf, rankOf, isHonor, isDragon, isTerminalOrHonor, isTerminal, isGreen,
+  baseKind, isRedFive
 } from './tiles.js'
 
 // Expand a normalized group into its constituent tile kinds.
@@ -20,9 +21,13 @@ function groupTiles(group) {
 // Build the normalized group list for a standard parse, choosing which
 // concealed group the winning tile completed (placement) and the wait shape.
 function buildPlacements(parse, ctx) {
+  // Red fives are ordinary fives for shape/yaku/dora purposes (their extra han is
+  // added separately as aka dora), so normalize meld tiles to their base kind.
   const meldGroups = ctx.melds.map((meld) => ({
     shape: meld.type === 'chi' ? 'run' : (meld.type === 'kan' ? 'kan' : 'triplet'),
-    tile: meld.type === 'chi' ? meld.tiles.slice().sort((left, right) => rankOf(left) - rankOf(right))[0] : meld.tiles[0],
+    tile: meld.type === 'chi'
+      ? meld.tiles.map(baseKind).sort((left, right) => rankOf(left) - rankOf(right))[0]
+      : baseKind(meld.tiles[0]),
     concealed: !!meld.concealed,
     fromMeld: true
   }))
@@ -36,7 +41,7 @@ function buildPlacements(parse, ctx) {
 
   const allGroups = [...meldGroups, ...concealedGroups]
   const placements = []
-  const winTile = ctx.winningTile
+  const winTile = baseKind(ctx.winningTile)
   const winRank = rankOf(winTile)
 
   // The winning tile completes one of the concealed groups, or the pair (tanki).
@@ -277,6 +282,14 @@ function countDora(allTiles, doraTiles) {
   return count
 }
 
+// Aka dora: one extra han per red five held, counted from the actual winning
+// tiles (concealed hand + melds) rather than the normalized parse.
+function countAka(ctx) {
+  let count = ctx.concealed.filter(isRedFive).length
+  for (const meld of ctx.melds) count += meld.tiles.filter(isRedFive).length
+  return count
+}
+
 // Score a single parse, returning the best placement's result.
 function scoreParse(parse, ctx) {
   if (parse.kind === 'kokushi') {
@@ -359,10 +372,12 @@ function finalizeNormal(yaku, fu, ctx, allTiles, menzen) {
   const yakuHan = yaku.reduce((sum, entry) => sum + (entry.han || 0), 0)
   const dora = countDora(allTiles, ctx.doraTiles)
   const uraDora = ctx.riichi ? countDora(allTiles, ctx.uraDoraTiles) : 0
-  const han = yakuHan + dora + uraDora
+  const aka = countAka(ctx)
+  const han = yakuHan + dora + uraDora + aka
   const fullYaku = [...yaku]
   if (dora > 0) fullYaku.push({ name: 'Dora', han: dora })
   if (uraDora > 0) fullYaku.push({ name: 'Ura Dora', han: uraDora })
+  if (aka > 0) fullYaku.push({ name: 'Aka Dora', han: aka })
   return {
     isYakuman: false,
     hasYaku: yakuHan > 0, // dora alone is not a yaku

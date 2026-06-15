@@ -1,9 +1,10 @@
-import { Box, Paper, Typography, Button, Stack, Chip, IconButton, Tooltip } from '@mui/material'
+import { Box, Paper, Typography, Button, Stack, Chip, IconButton, Tooltip, FormControlLabel, Switch } from '@mui/material'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 import Chat from './Chat.jsx'
 import ConnectionStatus from './ConnectionStatus.jsx'
+import Tile from './Tile.jsx'
 
-export default function Lobby({ roomId, roster, isHost, canStart, onStart, chat, onSend, status, net }) {
+export default function Lobby({ roomId, roster, isHost, canStart, onStart, akaDora, onToggleAka, chat, onSend, status, net }) {
   const slots = [0, 1, 2, 3]
   const copy = () => navigator.clipboard?.writeText(roomId)
 
@@ -47,9 +48,21 @@ export default function Lobby({ roomId, roster, isHost, canStart, onStart, chat,
         </Stack>
 
         {isHost ? (
-          <Button fullWidth variant="contained" size="large" disabled={!canStart} onClick={onStart}>
-            {canStart ? 'Start game' : `Need ${4 - roster.length} more player(s)`}
-          </Button>
+          <>
+            <FormControlLabel
+              sx={{ mb: 1, ml: 0 }}
+              control={<Switch checked={akaDora} onChange={(event) => onToggleAka(event.target.checked)} />}
+              label={
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  <span>Red fives (aka dora)</span>
+                  <Tile tile="0m" size="sm" noHover />
+                </Box>
+              }
+            />
+            <Button fullWidth variant="contained" size="large" disabled={!canStart} onClick={onStart}>
+              {canStart ? 'Start game' : `Need ${4 - roster.length} more player(s)`}
+            </Button>
+          </>
         ) : (
           <Typography variant="body2" sx={{ textAlign: 'center', color: '#cdbf94', mb: 1 }}>
             {status === 'connecting' ? waitingText : 'Waiting for host to start…'}

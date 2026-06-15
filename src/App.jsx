@@ -10,6 +10,7 @@ import ConnectionStatus from './components/ConnectionStatus.jsx'
 import GameStatus from './components/GameStatus.jsx'
 import TilePreview from './components/TilePreview.jsx'
 import { TileHoverContext } from './components/tileHover.js'
+import { baseKind } from './game/tiles.js'
 import { useGame } from './hooks/useGame.js'
 
 // Phones held sideways have little vertical room, so the top bar would eat too
@@ -27,17 +28,21 @@ const SIDEBAR_MQ = '@media (orientation: landscape) and (pointer: coarse) and (m
 // meld they joined already counts them.
 function seenInfo(view, kind) {
   if (!view) return { visible: 0, remaining: 4 }
+  // A red five and its ordinary five are the same kind for counting, so compare
+  // base kinds (there are still only four of each five in total).
+  const want = baseKind(kind)
+  const matches = (tile) => baseKind(tile) === want
   let visible = 0
   for (const hand of view.hands || []) {
-    if (Array.isArray(hand)) visible += hand.filter((tile) => tile === kind).length
+    if (Array.isArray(hand)) visible += hand.filter(matches).length
   }
   for (const pile of view.discards || []) {
-    visible += pile.filter((entry) => entry.tile === kind && !entry.called).length
+    visible += pile.filter((entry) => matches(entry.tile) && !entry.called).length
   }
   for (const melds of view.melds || []) {
-    for (const meld of melds) visible += meld.tiles.filter((tile) => tile === kind).length
+    for (const meld of melds) visible += meld.tiles.filter(matches).length
   }
-  visible += (view.doraIndicators || []).filter((tile) => tile === kind).length
+  visible += (view.doraIndicators || []).filter(matches).length
   return { visible, remaining: Math.max(0, 4 - visible) }
 }
 
@@ -45,7 +50,7 @@ function seenInfo(view, kind) {
 function GameSession({ config, onLeave }) {
   const {
     view, roster, chat, emotes, status, isHost, canStart, net, warning, error, dismissError,
-    sendAction, startGame, goNextRound, sendChat, sendEmote
+    akaDora, setAkaDora, sendAction, startGame, goNextRound, sendChat, sendEmote
   } = useGame(config)
 
   const inGame = !!view
@@ -123,6 +128,8 @@ function GameSession({ config, onLeave }) {
               isHost={isHost}
               canStart={canStart}
               onStart={startGame}
+              akaDora={akaDora}
+              onToggleAka={setAkaDora}
               chat={chat}
               onSend={sendChat}
               status={status}

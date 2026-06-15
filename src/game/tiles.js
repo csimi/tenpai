@@ -20,8 +20,16 @@ export const ALL_KINDS = (() => {
   return kinds
 })()
 
+// Red fives (akadora) use tenhou notation '0m'/'0p'/'0s'. A red five is
+// mechanically an ordinary five — rankOf treats the '0' rank as 5 — but counts as
+// one extra dora when it lands in a winning hand. `baseKind` strips the redness
+// for all rule logic; only display and aka-dora counting look at the red kind.
+export const RED_FIVE_KINDS = ['0m', '0p', '0s']
+export const isRedFive = (tile) => tile[0] === '0'
+export const baseKind = (tile) => (tile[0] === '0' ? `5${tile[1]}` : tile)
+
 export const suitOf = (tile) => tile[1]
-export const rankOf = (tile) => Number(tile[0])
+export const rankOf = (tile) => { const rank = Number(tile[0]); return rank === 0 ? 5 : rank }
 export const isHonor = (tile) => tile[1] === 'z'
 export const isWind = (tile) => tile[1] === 'z' && rankOf(tile) <= 4
 export const isDragon = (tile) => tile[1] === 'z' && rankOf(tile) >= 5
@@ -30,11 +38,18 @@ export const isTerminalOrHonor = (tile) => isHonor(tile) || isTerminal(tile)
 // "Green" tiles for ryuuiisou
 export const isGreen = (tile) => ['2s', '3s', '4s', '6s', '8s', '6z'].includes(tile)
 
-// Build a fresh, shuffled 136-tile wall.
-export function buildWall(rng = Math.random) {
+// Build a fresh, shuffled 136-tile wall. With `aka`, one 5 of each suit is
+// swapped for its red variant ('5m' -> '0m', etc.) before shuffling.
+export function buildWall(rng = Math.random, aka = false) {
   const wall = []
   for (const kind of ALL_KINDS) {
     for (let copy = 0; copy < 4; copy++) wall.push(kind)
+  }
+  if (aka) {
+    for (const suit of ['m', 'p', 's']) {
+      const idx = wall.indexOf(`5${suit}`)
+      if (idx !== -1) wall[idx] = `0${suit}`
+    }
   }
   // Fisher-Yates
   for (let idx = wall.length - 1; idx > 0; idx--) {

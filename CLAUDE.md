@@ -15,7 +15,7 @@ npm run preview  # serve the built dist/
 npm test         # node --test: scorer, randomized engine sim, full-flow
 ```
 
-- Tests use Node's built-in runner (`node:test` + `node:assert`); `npm test` is just `node --test`, which auto-discovers `tests/*.test.js`. They import from `src/game/` and assert on scores, deltas, and yaku. The engine test drives 300 randomized full rounds and asserts the engine never throws or stalls. Deals with random dora are pinned (`state.doraIndicators`) where exact payments are asserted.
+- Tests use Node's built-in runner (`node:test` + `node:assert`); `npm test` is just `node --test`, which auto-discovers `test/*.test.js`. They import from `src/game/` and assert on scores, deltas, and yaku. The engine test drives 300 randomized full rounds and asserts the engine never throws or stalls. Deals with random dora are pinned (`state.doraIndicators`) where exact payments are asserted.
 - **Tile-face preview:** open the app at `#tiles` (`App.jsx` renders `<TilePreview/>`) to see all 34 tile faces and size/rotation variants without starting a game.
 
 ## Conventions
@@ -30,7 +30,7 @@ npm test         # node --test: scorer, randomized engine sim, full-flow
 One peer is the **host** and owns the single source of truth. Clients send action *intents*; the host validates, advances the engine, and broadcasts a **per-player sanitized view** to each peer. There is no manual create/join: every peer enters the same room code and `useGame.js` runs a short lobby **host election** (exchange `claim` messages, settle after ~1.2s; first/lowest-id peer with no existing host wins, newcomers defer to an established host). Election is lobby-only — once a game starts the host is fixed and cannot be handed off.
 
 ```
-src/game/        pure game logic (no React, no network) — covered by tests/
+src/game/        pure game logic (no React, no network) — covered by test/
   tiles.js       tile model, 136-tile wall, shuffle, dora, sorting, names
   agari.js       winning-hand detection & decomposition (standard/chiitoi/kokushi), tenpai
   score.js       yaku detection, fu/han, points, dora counting
@@ -62,4 +62,6 @@ src/App.jsx      Home -> GameSession (AppBar + Lobby/GameBoard); owns the TileHo
 
 ## Limitations (intentional)
 
-No red-five (aka) dora, no abortive draws (kyuushu kyuuhai, four-kan/riichi/wind), no pao/sekinin-barai, no reconnection or late-join (all four must be present before the host starts, and the host must stay connected).
+No abortive draws (kyuushu kyuuhai, four-kan/riichi/wind), no pao/sekinin-barai, no reconnection or late-join (all four must be present before the host starts, and the host must stay connected).
+
+Red-five (aka) dora **is** supported: a host lobby toggle (default on, `createGame(players, { aka: true })`) swaps one 5 of each suit for its red variant. Red fives use tilekit's `'0m'/'0p'/'0s'` kinds and stay in engine state (hands/melds/discards/wall) for display + aka counting; everything rule-related normalizes via `baseKind()` (`tiles.js`) so a red five is an ordinary five for agari, yaku, calls and furiten, and the scorer adds one "Aka Dora" han per red five in the winning tiles.

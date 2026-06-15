@@ -30,6 +30,7 @@ export function useGame({ roomId, name }) {
   const [emotes, setEmotes] = useState({}) // { [seat]: { emoji, id } } transient reactions
   const [role, setRole] = useState('electing') // 'electing' | 'host' | 'client'
   const [status, setStatus] = useState('connecting')
+  const [akaDora, setAkaDora] = useState(true) // host's red-fives toggle (default on)
   // Connection / error feedback surfaced to the UI.
   const [net, setNet] = useState({ peers: 0, relayOpen: 0, relayTotal: 0, reachedHost: false })
   const [warning, setWarning] = useState(null) // non-fatal connection guidance
@@ -92,14 +93,15 @@ export function useGame({ roomId, name }) {
   const startGame = useCallback(() => {
     if (!isHostRef.current || rosterRef.current.length !== MAX_PLAYERS) return
     try {
-      const game = startRound(createGame(rosterRef.current.map((player) => ({ id: player.id, name: player.name }))))
+      const players = rosterRef.current.map((player) => ({ id: player.id, name: player.name }))
+      const game = startRound(createGame(players, { aka: akaDora }))
       gameRef.current = game
       connRef.current.sendStart({ players: rosterRef.current })
       broadcast()
     } catch (err) {
       fail('Failed to start game', err)
     }
-  }, [broadcast, fail])
+  }, [broadcast, fail, akaDora])
 
   const goNextRound = useCallback(() => {
     if (!isHostRef.current || !gameRef.current) return
@@ -393,6 +395,8 @@ export function useGame({ roomId, name }) {
     isHost: role === 'host',
     selfId,
     canStart,
+    akaDora,
+    setAkaDora,
     net,
     warning,
     error,

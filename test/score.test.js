@@ -34,6 +34,44 @@ test('riichi tsumo pinfu', () => {
   assert.equal(result.payment.total, 5200)
 })
 
+test('red five adds an aka-dora han', () => {
+  const result = scoreHand({
+    concealed: ['2m','3m','4m','0m','6m','7m','2p','3p','4p','6s','7s','8s','5p','5p'],
+    melds: [], winningTile: '0m', isTsumo: false, seatWind: '1z', roundWind: '1z',
+    riichi: false, doraTiles: [], uraDoraTiles: [], isDealer: false
+  })
+  assert.equal(result.valid, true)
+  assert.equal(result.han, 3) // tanyao + pinfu + 1 aka
+  assert.deepEqual(yakuNames(result), ['Tanyao', 'Pinfu', 'Aka Dora'])
+})
+
+test('multiple red fives each add a han, and stack with regular dora', () => {
+  const result = scoreHand({
+    concealed: ['2m','3m','4m','0m','6m','7m','2p','3p','4p','6s','7s','8s','0p','5p'],
+    melds: [], winningTile: '0m', isTsumo: false, seatWind: '1z', roundWind: '1z',
+    // dora indicator 4p -> dora 5p, so the 5p pair (one of them the red 5p) also
+    // scores 2 regular dora on top of the 2 aka.
+    riichi: false, doraTiles: ['5p'], uraDoraTiles: [], isDealer: false
+  })
+  assert.equal(result.valid, true)
+  assert.equal(result.han, 6) // tanyao + pinfu + 2 dora + 2 aka
+  assert.deepEqual(yakuNames(result), ['Tanyao', 'Pinfu', 'Dora', 'Aka Dora'])
+})
+
+test('aka dora alone is not a yaku (no-yaku hand stays invalid)', () => {
+  const result = scoreHand({
+    concealed: ['2m','3m','4m','5p','6p','7p','2s','2s'],
+    melds: [
+      { type: 'chi', tiles: ['0m','6m','7m'], concealed: false },
+      { type: 'pon', tiles: ['1p','1p','1p'], concealed: false }
+    ],
+    winningTile: '7p', isTsumo: false, seatWind: '1z', roundWind: '1z',
+    riichi: false, doraTiles: [], uraDoraTiles: [], isDealer: false
+  })
+  assert.equal(result.valid, false)
+  assert.equal(result.reason, 'No yaku')
+})
+
 test('suuankou tanki (ron on the pair) is double yakuman', () => {
   const result = scoreHand({
     concealed: ['5z','5z','5z','6z','6z','6z','1m','1m','1m','9p','9p','9p','5s','5s'],

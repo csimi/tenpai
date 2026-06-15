@@ -60,7 +60,7 @@ src/
   hooks/
     useGame.js   ties the engine to the network (host vs client roles)
   components/    React + MUI UI (board, hand, discards, melds, controls, lobby, …)
-tests/           node:test suites for the engine & scorer
+test/            node:test suites for the engine & scorer
 ```
 
 ## Rules implemented
