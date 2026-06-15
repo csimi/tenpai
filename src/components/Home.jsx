@@ -3,12 +3,15 @@ import {
   Box, Paper, Typography, TextField, Button, Stack, Divider, IconButton, Tooltip, InputAdornment
 } from '@mui/material'
 import CasinoIcon from '@mui/icons-material/Casino'
+import SchoolIcon from '@mui/icons-material/School'
+import Tutorial from './Tutorial.jsx'
 
 const randomCode = () => Math.random().toString(36).slice(2, 7).toUpperCase()
 
 export default function Home({ onEnter }) {
   const [name, setName] = useState('')
   const [roomId, setRoomId] = useState(randomCode())
+  const [showTutorial, setShowTutorial] = useState(false)
 
   const go = () => {
     const trimmedName = name.trim() || 'Player'
@@ -60,6 +63,12 @@ export default function Home({ onEnter }) {
           <Button variant="contained" size="large" onClick={go} disabled={!roomId.trim()}>
             Enter lobby
           </Button>
+          <Button
+            variant="outlined" size="large" startIcon={<SchoolIcon />}
+            onClick={() => setShowTutorial(true)}
+          >
+            New to mahjong? Learn how to play
+          </Button>
         </Stack>
 
         <Typography variant="caption" sx={{ display: 'block', mt: 2, color: '#8a9' }}>
@@ -68,6 +77,7 @@ export default function Home({ onEnter }) {
         </Typography>
       </Paper>
     </Box>
+    <Tutorial open={showTutorial} onClose={() => setShowTutorial(false)} />
     </Box>
   )
 }
