@@ -87,3 +87,49 @@ test('match reaches game end via repeated exhaustive draws', () => {
   assert.equal(state.phase, 'gameEnd')
   assert.ok(guard < 50)
 })
+
+test('game over keeps the final round label and result for the standings dialog', () => {
+  // Force an East-only match to its end: simulate finishing East 4 with the
+  // dealer (seat3) not keeping, so nextRound should declare the game over rather
+  // than rolling into a phantom South 1.
+  let state = startRound(createGame(players))
+  state.dealer = 3
+  state.roundWind = '1z'
+  state.roundNumber = 4
+  // Pretend the round just ended in an exhaustive draw the dealer didn't keep.
+  state.phase = 'roundEnd'
+  state.state = 'over'
+  state.result = { type: 'draw', tenpai: [false, false, false, false], deltas: [0, 0, 0, 0], hands: [null, null, null, null], doraIndicators: state.doraIndicators }
+  state._dealerKeepsByTenpai = false
+
+  const ended = nextRound(state)
+  assert.equal(ended.phase, 'gameEnd', 'tonpuusen ends after East 4')
+  assert.equal(ended.roundWind, '1z', 'keeps the East wind, not a phantom South')
+  assert.equal(ended.roundNumber, 4, 'keeps the last round number')
+  assert.ok(ended.result, 'preserves the result so the game-over dialog can open')
+
+  // The per-player view a client/host renders must carry the result through too.
+  const view = viewFor(ended, 'a')
+  assert.equal(view.phase, 'gameEnd')
+  assert.ok(view.result, 'view exposes the final result')
+})
+
+test('all-winds match runs East through North, then ends', () => {
+  let state = startRound(createGame(players, { maxRoundWind: '4z' }))
+  const played = []
+  for (let guard = 0; guard < 30 && state.phase === 'playing'; guard++) {
+    played.push(`${state.roundWind}${state.roundNumber}`)
+    // Force a no-tenpai exhaustive draw the dealer doesn't keep, so the dealer
+    // rotates every round and the match marches through all four winds.
+    state.phase = 'roundEnd'
+    state.state = 'over'
+    state.result = { type: 'draw', tenpai: [false, false, false, false], deltas: [0, 0, 0, 0], hands: [null, null, null, null], doraIndicators: state.doraIndicators }
+    state._dealerKeepsByTenpai = false
+    state = nextRound(state)
+  }
+  assert.equal(state.phase, 'gameEnd', 'four-wind match ends after North')
+  assert.equal(state.roundWind, '4z')
+  assert.equal(state.roundNumber, 4)
+  assert.deepEqual([played[0], played[15]], ['1z1', '4z4'])
+  assert.equal(played.length, 16, 'exactly 16 rounds (East 1 … North 4) are played')
+})

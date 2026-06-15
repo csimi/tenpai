@@ -1,10 +1,10 @@
-import { Box, Paper, Typography, Button, Stack, Chip, IconButton, Tooltip, FormControlLabel, Switch } from '@mui/material'
+import { Box, Paper, Typography, Button, Stack, Chip, IconButton, Tooltip, FormControlLabel, Switch, ToggleButton, ToggleButtonGroup } from '@mui/material'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 import Chat from './Chat.jsx'
 import ConnectionStatus from './ConnectionStatus.jsx'
 import Tile from './Tile.jsx'
 
-export default function Lobby({ roomId, roster, isHost, canStart, onStart, akaDora, onToggleAka, chat, onSend, status, net }) {
+export default function Lobby({ roomId, roster, isHost, canStart, onStart, akaDora, onToggleAka, matchLength, onChangeMatchLength, chat, onSend, status, net }) {
   const slots = [0, 1, 2, 3]
   const copy = () => navigator.clipboard?.writeText(roomId)
 
@@ -49,8 +49,21 @@ export default function Lobby({ roomId, roster, isHost, canStart, onStart, akaDo
 
         {isHost ? (
           <>
+            <Typography variant="body2" sx={{ mb: 0.5, color: '#cdbf94' }}>Match length</Typography>
+            <ToggleButtonGroup
+              exclusive
+              fullWidth
+              size="small"
+              value={matchLength}
+              onChange={(event, value) => { if (value) onChangeMatchLength(value) }}
+              sx={{ mb: 1.5, '& .MuiToggleButton-root': { flex: 1, lineHeight: 1.2 } }}
+            >
+              <ToggleButton value="east">East only<br />(Tonpuusen)</ToggleButton>
+              <ToggleButton value="south">East + South<br />(Hanchan)</ToggleButton>
+              <ToggleButton value="all">All four winds</ToggleButton>
+            </ToggleButtonGroup>
             <FormControlLabel
-              sx={{ mb: 1, ml: 0 }}
+              sx={{ display: 'flex', mb: 1, ml: 0 }}
               control={<Switch checked={akaDora} onChange={(event) => onToggleAka(event.target.checked)} />}
               label={
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>

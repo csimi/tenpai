@@ -85,8 +85,9 @@ test/            node:test suites for the engine & scorer
   chuuren poutou, tenhou/chiihou. Plus dora / ura-dora / kan-dora.
 - **Fu/han scoring** with the standard limit tiers (mangan → yakuman, incl. kazoe).
 - **Exhaustive draw** (ryuukyoku) with tenpai/noten payments and dealer-keep rules.
-- Defaults to a **tonpuusen** (East-only) match; pass `{ hanchan: true }` to
-  `createGame` for a full East+South match.
+- **Match length** is a host lobby choice: **tonpuusen** (East-only, default),
+  **hanchan** (East+South), or a full **four-wind** match (`createGame` takes
+  `{ hanchan: true }` or `{ maxRoundWind: '1z' | '2z' | '4z' }`).
 
 ## Notes & limitations
 

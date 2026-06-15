@@ -8,8 +8,12 @@ import { botTurnAction, botCallResponse } from '../game/bot.js'
 const MAX_PLAYERS = 4
 const clone = (value) => JSON.parse(JSON.stringify(value))
 
-// How long a bot waits before acting, so its moves are watchable.
-const BOT_DELAY = 5000
+// How long a bot waits before acting, so its moves are watchable. On the dev
+// server bots act immediately to make iterating on the game faster.
+const BOT_DELAY = import.meta.env.DEV ? 0 : 5000
+
+// Lobby match-length choice -> the match's final round wind (see createGame).
+const MATCH_END_WIND = { east: '1z', south: '2z', all: '4z' }
 
 // Where the human players sit so they're spread as far apart as possible — with
 // two humans they face each other (seats 0 and 2) and the bots take the sides.
@@ -55,6 +59,7 @@ export function useGame({ roomId, name }) {
   const [role, setRole] = useState('electing') // 'electing' | 'host' | 'client'
   const [status, setStatus] = useState('connecting')
   const [akaDora, setAkaDora] = useState(true) // host's red-fives toggle (default on)
+  const [matchLength, setMatchLength] = useState('east') // host's match length: 'east' | 'south' | 'all'
   // Connection / error feedback surfaced to the UI.
   const [net, setNet] = useState({ peers: 0, relayOpen: 0, relayTotal: 0, reachedHost: false })
   const [warning, setWarning] = useState(null) // non-fatal connection guidance
@@ -128,14 +133,14 @@ export function useGame({ roomId, name }) {
       rosterRef.current = seating
       setRoster(seating.slice())
       const players = seating.map((player) => ({ id: player.id, name: player.name }))
-      const game = startRound(createGame(players, { aka: akaDora }))
+      const game = startRound(createGame(players, { aka: akaDora, maxRoundWind: MATCH_END_WIND[matchLength] }))
       gameRef.current = game
       connRef.current.sendStart({ players: seating })
       broadcast()
     } catch (err) {
       fail('Failed to start game', err)
     }
-  }, [broadcast, fail, akaDora])
+  }, [broadcast, fail, akaDora, matchLength])
 
   const goNextRound = useCallback(() => {
     if (!isHostRef.current || !gameRef.current) return
@@ -496,6 +501,8 @@ export function useGame({ roomId, name }) {
     canStart,
     akaDora,
     setAkaDora,
+    matchLength,
+    setMatchLength,
     net,
     warning,
     error,

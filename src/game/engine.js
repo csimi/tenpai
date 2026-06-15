@@ -43,7 +43,10 @@ export function createGame(players, options = {}) {
     roundNumber: 1,
     honba: 0,
     riichiSticks: 0,
-    maxRoundWind: options.hanchan ? '2z' : '1z', // tonpuusen by default
+    // Final wind of the match: East-only (tonpuusen) by default, '2z' for an
+    // East+South hanchan, '4z' for a full four-wind match. An explicit
+    // `maxRoundWind` wins; `hanchan: true` is kept as a shorthand for '2z'.
+    maxRoundWind: options.maxRoundWind || (options.hanchan ? '2z' : '1z'),
     aka: !!options.aka, // red fives (akadora)
     result: null,
     log: [],
@@ -716,33 +719,30 @@ export function nextRound(game) {
     honba = result.type === 'draw' ? honba + 1 : 0
     dealer = nextSeat(dealer)
     if (dealer === 0) {
-      // wind rotates after a full lap
-      roundWind = roundWind === '1z' ? '2z' : (roundWind === '2z' ? '3z' : '4z')
+      // A full lap of the current wind just finished. If that was the match's
+      // final wind, the game is over; keep the finished round's wind/number and
+      // its result so the final-standings dialog still shows (rather than rolling
+      // into a round that will never be played). Otherwise advance to the next wind.
+      if (roundWind === game.maxRoundWind) {
+        return { ...game, phase: 'gameEnd' }
+      }
+      roundWind = nextWind(roundWind)
       roundNumber = 1
     } else {
       roundNumber += 1
     }
   }
 
-  const base = {
-    ...game,
-    dealer,
-    roundWind,
-    roundNumber,
-    honba,
-    result: null
+  // A bankruptcy ends the match immediately, whatever the round.
+  if (game.scores.some((value) => value < 0)) {
+    return { ...game, phase: 'gameEnd' }
   }
 
-  // Game over: passed the configured final wind, or someone went bankrupt.
-  const windExceeded = windRank(roundWind) > windRank(game.maxRoundWind)
-  const bankrupt = base.scores.some((value) => value < 0)
-  if (windExceeded || bankrupt) {
-    return { ...base, phase: 'gameEnd' }
-  }
-  return startRound(base)
+  return startRound({ ...game, dealer, roundWind, roundNumber, honba, result: null })
 }
 
-const windRank = (wind) => Number(wind[0])
+const WIND_ORDER = ['1z', '2z', '3z', '4z'] // East South West North
+const nextWind = (wind) => WIND_ORDER[WIND_ORDER.indexOf(wind) + 1] || wind
 
 // ---- Per-player view (hides hidden information) ----------------------------
 
