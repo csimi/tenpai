@@ -450,6 +450,9 @@ function doSelfKan(state, seat, action) {
 
 function doCallResponse(state, seat, response) {
   if (state.state !== 'callWait' || !state.pendingCalls || !state.pendingCalls[seat]) return state
+  // First answer is final — ignore any later response so a ron can't be
+  // overwritten by a subsequent (lower-priority) chi/pon, or vice versa.
+  if (state.pendingCalls[seat].responded) return state
   state.pendingCalls[seat].responded = true
   state.pendingCalls[seat].choice = response // { type, tiles? } or { type:'pass' }
   return autoResolveCalls(state)
@@ -783,11 +786,17 @@ export function viewFor(state, playerId) {
     view.drawnTile = state.drawnTile
     view.selfOptions = selfOptions(state, you)
   }
-  // Your call options, if any are pending.
+  // Your call options, if any are pending. Once you've responded, withhold the
+  // options so the UI stops offering buttons and can show that it's now waiting
+  // on the other seats (a call window only resolves once everyone has answered).
   if (state.state === 'callWait' && state.pendingCalls && state.pendingCalls[you]) {
-    view.callOptions = state.pendingCalls[you].options
     view.callPending = true
-    view.callTile = state.lastDiscard ? state.lastDiscard.tile : state.chankanTile
+    if (state.pendingCalls[you].responded) {
+      view.callResponded = true
+    } else {
+      view.callOptions = state.pendingCalls[you].options
+      view.callTile = state.lastDiscard ? state.lastDiscard.tile : state.chankanTile
+    }
   } else if (state.state === 'callWait') {
     view.callPending = true // someone else is deciding
   }

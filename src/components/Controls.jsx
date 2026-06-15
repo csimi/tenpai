@@ -1,4 +1,4 @@
-import { Box, Button, Stack } from '@mui/material'
+import { Box, Button, Stack, Typography } from '@mui/material'
 import Tile from './Tile.jsx'
 
 // Action buttons. Two contexts:
@@ -64,7 +64,19 @@ export default function Controls({
     )
   }
 
-  if (buttons.length === 0) return null
+  if (buttons.length === 0) {
+    // A call window is open but we have no (further) action — either we've
+    // already answered or another seat is deciding. Show that we're waiting so a
+    // declared call (e.g. ron) doesn't look like it was ignored.
+    if (view.callPending) {
+      return (
+        <Typography variant="body2" sx={{ color: '#cdbf94' }}>
+          {view.callResponded ? 'Call registered — waiting for other players…' : 'Waiting for other players…'}
+        </Typography>
+      )
+    }
+    return null
+  }
 
   return (
     <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1, justifyContent: 'center', alignItems: 'center' }}>
