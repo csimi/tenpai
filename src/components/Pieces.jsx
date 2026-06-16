@@ -62,18 +62,22 @@ export function Discards({ discards, lastIndex, orient = 0, size = 'sm' }) {
   // of growing tile-by-tile. minmax holds empty tracks at their natural tile
   // size while still letting a sideways riichi tile expand its own track.
   const { w: tileW, h: tileH } = SIZES[size] || SIZES.sm
+  // Always reserve at least 3 rows deep so the pond keeps a stable footprint; the
+  // placement below must use this same depth, not the raw `rows`, so the rows that
+  // grow away from the player still anchor against the center square.
+  const depth = Math.max(3, rows)
   const along = `repeat(6, minmax(${tileW}, auto))`
-  const across = `repeat(${Math.max(3, rows)}, minmax(${tileH}, auto))`
+  const across = `repeat(${depth}, minmax(${tileH}, auto))`
   // Map a discard index to a 1-based grid cell. `pos` runs along a row (the
   // player's left→right); `row` is which row (0 = first, furthest from player).
   const placeAt = (idx) => {
     const pos = idx % 6
     const row = Math.floor(idx / 6)
     switch (orient) {
-      case 90: return { gridColumn: rows - row, gridRow: pos + 1 }   // left
-      case 180: return { gridColumn: 6 - pos, gridRow: rows - row }  // across
-      case 270: return { gridColumn: row + 1, gridRow: 6 - pos }     // right
-      default: return { gridColumn: pos + 1, gridRow: row + 1 }      // self
+      case 90: return { gridColumn: depth - row, gridRow: pos + 1 }   // left
+      case 180: return { gridColumn: 6 - pos, gridRow: depth - row }  // across
+      case 270: return { gridColumn: row + 1, gridRow: 6 - pos }      // right
+      default: return { gridColumn: pos + 1, gridRow: row + 1 }       // self
     }
   }
   return (
