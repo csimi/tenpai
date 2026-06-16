@@ -17,7 +17,11 @@ const capitalize = (text) => text.charAt(0).toUpperCase() + text.slice(1)
 export const SIZES = {
   sm: { w: 'clamp(16px, 2.4vmin, 28px)', h: 'clamp(22px, 3.4vmin, 39px)' }, // melds, opponent hands
   md: { w: 'clamp(24px, 3.7vmin, 40px)', h: 'clamp(34px, 5.2vmin, 56px)' }, // dora
-  lg: { w: 'clamp(33px, 5.1vmin, 56px)', h: 'clamp(46px, 7.2vmin, 78px)' } //  the local player's hand, discards
+  lg: { w: 'clamp(33px, 5.1vmin, 56px)', h: 'clamp(46px, 7.2vmin, 78px)' }, // discards
+  xl: { w: 'clamp(40px, 7vmin, 60px)', h: 'clamp(56px, 9.8vmin, 84px)' }, //  the local player's own hand
+  // Opponents' face-down hands: 1.5× `lg`. They live inside the scaled-to-fit
+  // table, so the larger pre-scale size reads better once the table is shrunk.
+  oppHand: { w: 'clamp(50px, 7.65vmin, 84px)', h: 'clamp(69px, 10.8vmin, 117px)' }
 }
 
 export default function Tile({

@@ -245,21 +245,25 @@ export function SeatTag({ seat, name, score, isDealer, isTurn, inRiichi, dealer,
         }}
       />
       {timer && <TurnTimer key={timer.token} remaining={timer.remaining} bank={timer.bank} />}
-      <Box sx={{ minWidth: 0 }}>
-        <Typography variant="body2" noWrap sx={{ fontWeight: 600, maxWidth: 120 }}>
-          {name}
-        </Typography>
-        {showScore && (
-          <Typography variant="caption" sx={{ color: '#cdbf94' }}>
-            {score.toLocaleString()}
-            {typeof scoreDelta === 'number' && scoreDelta !== 0 && (
-              <Box component="span" sx={{ ml: 0.5, color: scoreDelta > 0 ? '#7CFC9A' : '#ff8a80' }}>
-                {scoreDelta > 0 ? '+' : ''}{scoreDelta}
-              </Box>
-            )}
-          </Typography>
-        )}
-      </Box>
+      {(name || showScore) && (
+        <Box sx={{ minWidth: 0 }}>
+          {name && (
+            <Typography variant="body2" noWrap sx={{ fontWeight: 600, maxWidth: 120 }}>
+              {name}
+            </Typography>
+          )}
+          {showScore && (
+            <Typography variant="caption" sx={{ color: '#cdbf94' }}>
+              {score.toLocaleString()}
+              {typeof scoreDelta === 'number' && scoreDelta !== 0 && (
+                <Box component="span" sx={{ ml: 0.5, color: scoreDelta > 0 ? '#7CFC9A' : '#ff8a80' }}>
+                  {scoreDelta > 0 ? '+' : ''}{scoreDelta}
+                </Box>
+              )}
+            </Typography>
+          )}
+        </Box>
+      )}
       {inRiichi && (waits && waits.length > 0 ? (
         <Tooltip
           arrow

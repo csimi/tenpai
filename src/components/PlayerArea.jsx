@@ -13,7 +13,7 @@ import { Melds, SeatTag } from './Pieces.jsx'
 //   left   -> [tag] / [hand] / [melds]   (column, top->bottom)
 //   right  -> [melds] / [hand] / [tag]   (column, top->bottom)
 
-const HAND_SIZE = 'lg'
+const HAND_SIZE = 'oppHand'
 const MELD_SIZE = 'lg'
 
 export default function PlayerArea({ view, seat, orientation = 'top', emote }) {

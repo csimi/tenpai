@@ -54,7 +54,7 @@ export default function Hand({ tiles, drawnTile, onDiscard, riichiMode, riichiTi
     <Tile
       key={key}
       tile={tile}
-      size="lg"
+      size="xl"
       onClick={canDiscard(tile) ? () => handleClick(tile, key) : undefined}
       disabled={!canDiscard(tile)}
       selected={selectedKey === key}
@@ -77,7 +77,7 @@ export default function Hand({ tiles, drawnTile, onDiscard, riichiMode, riichiTi
         // Reserve the drawn-tile slot off-turn so the hand keeps the same width
         // whether or not you're holding a draw (no shift when the turn passes).
         <Box sx={{ ml: 1.5, visibility: 'hidden' }} aria-hidden>
-          <Tile size="lg" facedown />
+          <Tile size="xl" facedown />
         </Box>
       )}
     </Box>

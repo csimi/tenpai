@@ -70,15 +70,17 @@ export default function GameBoard({ view, isHost, sendAction, goNextRound, emote
 
   return (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      {/* Table: opponents at the edges, ponds + scores in the center cluster,
-          self area along the bottom. The whole thing is sized to its content and
-          scaled to fit (FitBox). Round/dora/wall status lives in the header. */}
+      {/* Table: the three opponents at the edges and the ponds/scores in the
+          center cluster. Sized to content and scaled to fit (FitBox). Your own
+          hand is deliberately NOT in here — it renders at full size below, so it
+          isn't shrunk just to make the whole table fit a narrow phone width.
+          Round/dora/wall status lives in the header. */}
       <FitBox>
         <Box
           sx={{
             display: 'grid',
             gridTemplateColumns: 'auto auto auto',
-            gridTemplateRows: 'auto auto auto',
+            gridTemplateRows: 'auto auto',
             gap: 1,
             p: 1
           }}
@@ -97,53 +99,57 @@ export default function GameBoard({ view, isHost, sendAction, goNextRound, emote
           <Box sx={{ ...cellSx, gridColumn: 2, gridRow: 2 }}>
             <CenterTable view={view} seatAt={seatAt} />
           </Box>
-
-          {/* Self: action buttons, then [tag] [hand] [melds] */}
-          <Box sx={{ ...cellSx, gridColumn: '1 / -1', gridRow: 3, flexDirection: 'column', gap: 1 }}>
-            {/* Reserve a constant row for the action buttons so the hand below
-                doesn't shift (and rescale the table) when they appear/clear. The
-                height fits a button holding a small tile (Ron/Pon/Chi previews). */}
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 'calc(clamp(22px, 3.4vmin, 39px) + 16px)' }}>
-              <Controls
-                view={view}
-                riichiMode={riichiMode}
-                onToggleRiichi={() => setRiichiMode((mode) => !mode)}
-                onTsumo={() => sendAction({ type: 'tsumo' })}
-                onKanClosed={(kan) => sendAction({ type: 'kan', kind: kan.kind, tile: kan.tile })}
-                onCall={(call) => sendAction({ type: 'callResponse', response: call })}
-                onPass={() => sendAction({ type: 'callResponse', response: { type: 'pass' } })}
-              />
-            </Box>
-            {Array.isArray(view.hands?.[you]) && (
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                <SeatTag
-                  seat={you}
-                  name={view.players[you]?.name || 'You'}
-                  isDealer={you === view.dealer}
-                  isTurn={you === view.turn && view.phase === 'playing'}
-                  inRiichi={view.riichi[you]}
-                  dealer={view.dealer}
-                  showScore={false}
-                  waits={view.yourWaits}
-                  emote={emotes[you]}
-                  onEmote={sendEmote}
-                  timer={view.timer?.[you] || null}
-                />
-                <Hand
-                  tiles={view.hands[you]}
-                  drawnTile={view.drawnTile}
-                  onDiscard={onDiscard}
-                  riichiMode={riichiMode}
-                  riichiTiles={view.selfOptions?.riichi}
-                  alreadyRiichi={view.riichi[you] && !view.selfOptions?.riichi}
-                  yourTurn={yourTurn}
-                />
-                <Melds melds={view.melds[you]} size="lg" />
-              </Box>
-            )}
-          </Box>
         </Box>
       </FitBox>
+
+      {/* Self area: only the [hand] [melds] row takes layout space (pinned to the
+          bottom, full size). The action buttons and the name/timer tag are floated
+          absolutely into the empty space just above the hand — they'd otherwise
+          reserve a row and shove the hand down / off-center. `bottom: 100%` anchors
+          them right above the hand regardless of how many rows it wraps to. */}
+      <Box sx={{ position: 'relative', flexShrink: 0, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', px: 1, pb: 1 }}>
+        <Box sx={{ position: 'absolute', bottom: '100%', left: 0, right: 0, mb: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Controls
+            view={view}
+            riichiMode={riichiMode}
+            onToggleRiichi={() => setRiichiMode((mode) => !mode)}
+            onTsumo={() => sendAction({ type: 'tsumo' })}
+            onKanClosed={(kan) => sendAction({ type: 'kan', kind: kan.kind, tile: kan.tile })}
+            onCall={(call) => sendAction({ type: 'callResponse', response: call })}
+            onPass={() => sendAction({ type: 'callResponse', response: { type: 'pass' } })}
+          />
+        </Box>
+        {Array.isArray(view.hands?.[you]) && (
+          <>
+            <Box sx={{ position: 'absolute', bottom: '100%', left: 8, mb: 1 }}>
+              <SeatTag
+                seat={you}
+                isDealer={you === view.dealer}
+                isTurn={you === view.turn && view.phase === 'playing'}
+                inRiichi={view.riichi[you]}
+                dealer={view.dealer}
+                showScore={false}
+                waits={view.yourWaits}
+                emote={emotes[you]}
+                onEmote={sendEmote}
+                timer={view.timer?.[you] || null}
+              />
+            </Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap', gap: 1.5 }}>
+              <Hand
+                tiles={view.hands[you]}
+                drawnTile={view.drawnTile}
+                onDiscard={onDiscard}
+                riichiMode={riichiMode}
+                riichiTiles={view.selfOptions?.riichi}
+                alreadyRiichi={view.riichi[you] && !view.selfOptions?.riichi}
+                yourTurn={yourTurn}
+              />
+              <Melds melds={view.melds[you]} size="lg" />
+            </Box>
+          </>
+        )}
+      </Box>
 
       <ResultDialog view={view} isHost={isHost} onNext={goNextRound} />
     </Box>
