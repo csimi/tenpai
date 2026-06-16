@@ -8,6 +8,7 @@ import Lobby from './components/Lobby.jsx'
 import GameBoard from './components/GameBoard.jsx'
 import ConnectionStatus from './components/ConnectionStatus.jsx'
 import GameStatus from './components/GameStatus.jsx'
+import YakuList from './components/YakuList.jsx'
 import TilePreview from './components/TilePreview.jsx'
 import { TileHoverContext } from './components/tileHover.js'
 import { baseKind } from './game/tiles.js'
@@ -55,6 +56,7 @@ function GameSession({ config, onLeave }) {
 
   const inGame = !!view
   const [confirmLeave, setConfirmLeave] = useState(false)
+  const [showYaku, setShowYaku] = useState(false)
 
   // Hover state shared across every tile (hand, ponds, melds, dora indicators
   // in the header) so the "tiles seen / left" tooltip and match-highlight stay
@@ -89,9 +91,12 @@ function GameSession({ config, onLeave }) {
           <ConnectionStatus net={net} inGame={inGame} />
           {inGame && <GameStatus view={view} />}
           <Box sx={{ flex: 1 }} />
+          <Button color="inherit" size="small" onClick={() => setShowYaku(true)}>Yaku</Button>
           <Button color="inherit" size="small" onClick={() => setConfirmLeave(true)}>Leave</Button>
         </Toolbar>
       </AppBar>
+
+      <YakuList open={showYaku} onClose={() => setShowYaku(false)} />
 
       <Dialog open={confirmLeave} onClose={() => setConfirmLeave(false)}>
         <DialogTitle>Leave the game?</DialogTitle>
