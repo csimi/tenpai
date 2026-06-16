@@ -76,6 +76,7 @@ export function useGame({ roomId, name }) {
   const [net, setNet] = useState({ peers: 0, relayOpen: 0, relayTotal: 0, reachedHost: false })
   const [warning, setWarning] = useState(null) // non-fatal connection guidance
   const [error, setError] = useState(null) // dismissible error message
+  const [ended, setEnded] = useState(null) // client only: match ended because the host left
 
   const connRef = useRef(null)
   const gameRef = useRef(null) // host only: authoritative engine state
@@ -464,7 +465,15 @@ export function useGame({ roomId, name }) {
         },
         onPeerLeave: (peerId) => {
           claims.delete(peerId)
-          if (!isHostRef.current) return
+          if (!isHostRef.current) {
+            // The host owns the only authoritative engine and can't be handed off
+            // once a game is underway, so if it disconnects mid-match there's
+            // nothing left to drive the round — the match is over for everyone.
+            if (peerId === hostIdRef.current && viewRef.current) {
+              setEnded('The host left the game — the match is over.')
+            }
+            return
+          }
           const game = gameRef.current
           if (game) {
             // Mid-game: hand the departed player's seat to a bot rather than
@@ -657,6 +666,7 @@ export function useGame({ roomId, name }) {
     net,
     warning,
     error,
+    ended,
     dismissError,
     sendAction,
     startGame,

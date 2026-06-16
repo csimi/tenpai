@@ -50,7 +50,7 @@ function seenInfo(view, kind) {
 // Mounted once the player has entered a room. Owns the live session.
 function GameSession({ config, onLeave }) {
   const {
-    view, roster, chat, emotes, status, isHost, canStart, net, warning, error, dismissError,
+    view, roster, chat, emotes, status, isHost, canStart, net, warning, error, ended, dismissError,
     akaDora, setAkaDora, matchLength, setMatchLength, timeLimit, setTimeLimit, sendAction, startGame, goNextRound, sendChat, sendEmote
   } = useGame(config)
 
@@ -147,6 +147,18 @@ function GameSession({ config, onLeave }) {
           )}
         </Box>
       </Box>
+
+      {/* The host left mid-game: there's no one left to run the round, so end the
+          match and send the player back to the menu (no Stay option). */}
+      <Dialog open={!!ended}>
+        <DialogTitle>Game over</DialogTitle>
+        <DialogContent>
+          <DialogContentText>{ended}</DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button color="primary" variant="contained" onClick={onLeave}>Return to menu</Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Dismissible error toast for engine/transport failures. */}
       <Snackbar
