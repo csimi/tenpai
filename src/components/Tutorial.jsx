@@ -313,7 +313,7 @@ const STEPS = [
           />
           <LabeledTiles
             name="Chi — sequence"
-            desc="Claim only the player to your left to complete a sequence."
+            desc="Claim only from the player to your left to complete a sequence."
             tiles={['4p', '5p', '6p']}
           />
           <LabeledTiles
@@ -366,8 +366,8 @@ const STEPS = [
           />
           <LabeledTiles
             name="Tanyao — all simples"
-            desc="Every tile is a 2–8 number tile: no terminals (1 or 9) and no honors."
-            tiles={['3m', '4m', '5m', '6p', '7p', '8p', '5s', '5s']}
+            desc="Every tile is a 2–8 number tile: no terminals (1 or 9) and no honors. Triplets count too, and it's one of the few yaku you keep even with an open hand — so you can pon toward it."
+            tiles={['3m', '4m', '5m', '6p', '6p', '6p', '5s', '5s']}
           />
           <LabeledTiles
             name="Yakuhai — value triplet"
