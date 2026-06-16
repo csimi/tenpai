@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useLayoutEffect } from 'react'
 import {
   Box, Dialog, DialogTitle, DialogContent, DialogActions, Button, Typography,
   IconButton, MobileStepper, Tooltip
@@ -23,14 +23,75 @@ function NamedTile(props) {
   )
 }
 
+// Keeps a row of tiles on a single line, scaling it down uniformly to fit the
+// available width instead of wrapping. A full 14-tile hand at `md` overflows a
+// phone and would otherwise wrap into ragged 9/3/1 lines; this shrinks it to one
+// tidy row.
+//
+// `transform: scale` doesn't shrink an element's layout box, so the scaled row is
+// taken out of flow (absolute) and the outer's measured height (natural height ×
+// scale) is what following content flows under — otherwise the row's full-size
+// layout box would overlap the caption beneath it. `width: max-content` keeps the
+// measured natural width to the true single-line width regardless of how narrow
+// the container gets. The inner stays measurable (and the lift on the discard
+// demo can poke above) via `overflow: visible`.
+function FitRow({ children, justify = 'center' }) {
+  const outerRef = useRef(null)
+  const innerRef = useRef(null)
+  const [scale, setScale] = useState(1)
+  const [height, setHeight] = useState()
+  const left = justify === 'flex-start'
+
+  useLayoutEffect(() => {
+    const outer = outerRef.current
+    const inner = innerRef.current
+    if (!outer || !inner) return undefined
+    const compute = () => {
+      const natW = inner.offsetWidth
+      const natH = inner.offsetHeight
+      if (!natW || !natH) return
+      const next = Math.min(1, outer.clientWidth / natW)
+      setScale(next)
+      setHeight(natH * next)
+    }
+    compute()
+    // Observe only the outer (available width). It resizes whenever the dialog or
+    // viewport does — which is also when the vmin-sized tiles change — so this
+    // catches every relevant change without feeding the scale back into itself.
+    const observer = new ResizeObserver(compute)
+    observer.observe(outer)
+    return () => observer.disconnect()
+  }, [])
+
+  return (
+    <Box ref={outerRef} sx={{ position: 'relative', width: '100%', height }}>
+      <Box
+        ref={innerRef}
+        sx={{
+          position: 'absolute', top: 0, left: left ? 0 : '50%', width: 'max-content',
+          transformOrigin: left ? 'top left' : 'top center',
+          transform: left ? `scale(${scale})` : `translateX(-50%) scale(${scale})`
+        }}
+      >
+        {children}
+      </Box>
+    </Box>
+  )
+}
+
 // A non-interactive row of tiles, optionally with a caption underneath — used to
-// show example sets and complete hands.
-function TileRow({ tiles, caption, size = 'md' }) {
+// show example sets and complete hands. `fit` scales a long row to fit the width
+// on one line; leave it off for short rows that sit side by side (they'd each
+// grab the full width and stack).
+function TileRow({ tiles, caption, size = 'md', fit = false }) {
+  const row = (
+    <Box sx={{ display: 'flex', gap: 0.5, flexWrap: fit ? 'nowrap' : 'wrap', justifyContent: 'center' }}>
+      {tiles.map((tile, idx) => <NamedTile key={idx} tile={tile} size={size} />)}
+    </Box>
+  )
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
-      <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', justifyContent: 'center' }}>
-        {tiles.map((tile, idx) => <NamedTile key={idx} tile={tile} size={size} />)}
-      </Box>
+      {fit ? <FitRow>{row}</FitRow> : row}
       {caption && (
         <Typography variant="caption" sx={{ color: '#cdbf94' }}>{caption}</Typography>
       )}
@@ -73,13 +134,15 @@ function TileQuiz({ partial, options, answer }) {
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, mt: 1 }}>
-      <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'flex-end', flexWrap: 'wrap', justifyContent: 'center', minHeight: SIZES.md.h }}>
-        {partial.map((tile, idx) =>
-          tile === null
-            ? <Box key={idx}>{solved ? <NamedTile tile={answer} /> : <GapSlot />}</Box>
-            : <NamedTile key={idx} tile={tile} />
-        )}
-      </Box>
+      <FitRow>
+        <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'flex-end', justifyContent: 'center', minHeight: SIZES.md.h }}>
+          {partial.map((tile, idx) =>
+            tile === null
+              ? <Box key={idx}>{solved ? <NamedTile tile={answer} /> : <GapSlot />}</Box>
+              : <NamedTile key={idx} tile={tile} />
+          )}
+        </Box>
+      </FitRow>
 
       {solved ? (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, color: '#7bc67b' }}>
@@ -151,12 +214,14 @@ function DiscardDemo() {
 
   return (
     <Box ref={containerRef} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-      <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 0.5, flexWrap: 'wrap', justifyContent: 'center' }}>
-        <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', justifyContent: 'center' }}>
-          {sortTiles(DEMO_HAND).map((tile, idx) => renderTile(tile, idx))}
+      <FitRow>
+        <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 0.5, justifyContent: 'center' }}>
+          <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center' }}>
+            {sortTiles(DEMO_HAND).map((tile, idx) => renderTile(tile, idx))}
+          </Box>
+          <Box sx={{ ml: 1.5 }}>{renderTile(DEMO_DRAWN, 'drawn')}</Box>
         </Box>
-        <Box sx={{ ml: 1.5 }}>{renderTile(DEMO_DRAWN, 'drawn')}</Box>
-      </Box>
+      </FitRow>
 
       {discarded ? (
         <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
@@ -192,8 +257,12 @@ function LabeledTiles({ name, desc, tiles }) {
       <Typography variant="subtitle2" sx={{ color: GOLD, fontWeight: 700 }}>{name}</Typography>
       <Typography variant="body2" sx={{ color: '#cdbf94' }}>{desc}</Typography>
       {tiles && (
-        <Box sx={{ display: 'flex', gap: 0.5, mt: 0.5, flexWrap: 'wrap' }}>
-          {tiles.map((tile, idx) => <NamedTile key={idx} tile={tile} size="md" />)}
+        <Box sx={{ mt: 0.5 }}>
+          <FitRow justify="flex-start">
+            <Box sx={{ display: 'flex', gap: 0.5 }}>
+              {tiles.map((tile, idx) => <NamedTile key={idx} tile={tile} size="md" />)}
+            </Box>
+          </FitRow>
         </Box>
       )}
     </Box>
@@ -232,9 +301,9 @@ const STEPS = [
           There are three numbered suits running 1–9, plus seven honor tiles. Four copies of every kind.
         </Typography>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-          <TileRow tiles={['1m', '2m', '3m', '4m', '5m', '6m', '7m', '8m', '9m']} caption="Characters (man)" size="md" />
-          <TileRow tiles={['1p', '2p', '3p', '4p', '5p', '6p', '7p', '8p', '9p']} caption="Circles (pin)" size="md" />
-          <TileRow tiles={['1s', '2s', '3s', '4s', '5s', '6s', '7s', '8s', '9s']} caption="Bamboo (sou)" size="md" />
+          <TileRow tiles={['1m', '2m', '3m', '4m', '5m', '6m', '7m', '8m', '9m']} caption="Characters (man)" size="md" fit />
+          <TileRow tiles={['1p', '2p', '3p', '4p', '5p', '6p', '7p', '8p', '9p']} caption="Circles (pin)" size="md" fit />
+          <TileRow tiles={['1s', '2s', '3s', '4s', '5s', '6s', '7s', '8s', '9s']} caption="Bamboo (sou)" size="md" fit />
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, justifyContent: 'center', mt: 0.5 }}>
             <TileRow tiles={['1z', '2z', '3z', '4z']} caption="Winds (E S W N)" size="md" />
             <TileRow tiles={['5z', '6z', '7z']} caption="Dragons" size="md" />
@@ -411,6 +480,10 @@ const STEPS = [
             Calls — and even wins — are optional. When you're offered a pon, chi, kan, or a winning
             tile (ron/tsumo), you can take it or <b>pass</b> and keep playing.
           </Typography>
+          <Typography component="li" variant="body2">
+            The <b>Yaku</b> button up in the header opens a reference of every scoring pattern, paged
+            from the basics up to the rare yakuman — peek at it any time you forget one.
+          </Typography>
         </Box>
         <Typography variant="body1" sx={{ mt: 2 }}>
           You'll pick the rest up by playing. Good luck!
@@ -448,7 +521,12 @@ export default function Tutorial({ open, onClose }) {
           a short modal (no dead space) and a long one grows then scrolls. Keyed by
           step so navigating remounts: quiz order re-scrambles and per-step state
           (picks, the discard demo) resets. */}
-      <DialogContent dividers>
+      {/* `scrollbarGutter: stable` keeps the content width constant whether or not
+          the vertical scrollbar is showing. Without it, a FitRow shrinking its
+          reserved height can remove the scrollbar, which widens the content, which
+          rescales the row taller, which brings the scrollbar back — an endless
+          resize loop that visibly flickers (worst on narrow portrait screens). */}
+      <DialogContent dividers sx={{ scrollbarGutter: 'stable' }}>
         <Box key={step}>{current.render()}</Box>
       </DialogContent>
 
