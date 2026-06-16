@@ -27,7 +27,7 @@ test('four bots play full rounds to completion without stalling', () => {
         const entry = Object.entries(state.pendingCalls).find(([, value]) => !value.responded)
         if (!entry) break
         const seat = Number(entry[0])
-        state = applyAction(state, seat, { type: 'callResponse', response: botCallResponse(entry[1].options) })
+        state = applyAction(state, seat, { type: 'callResponse', response: botCallResponse(state, seat, entry[1].options) })
       } else break
     }
 
@@ -42,6 +42,23 @@ test('four bots play full rounds to completion without stalling', () => {
   assert.equal(wins + draws, GAMES)
   // Efficiency-driven bots should win a healthy share of rounds, not just draw.
   assert.ok(wins > GAMES * 0.3, `expected bots to win often, got ${wins}/${GAMES} wins`)
+})
+
+// A sound bot opens its hand for a yaku-bearing call but never for one that would
+// strand it yakuless (an open hand can't win without a yaku).
+test('bots take a yaku-bearing call but pass a yakuless one', () => {
+  const meldsAllEmpty = [[], [], [], []]
+
+  // Seat 0 in East: 1z is both round and seat wind, so ponning it secures yakuhai.
+  const yakuhaiHand = ['1z', '1z', '2m', '3m', '4m', '6p', '7p', '8p', '2s', '3s', '4s', '5m', '5m']
+  const yakuhaiState = { hands: [yakuhaiHand, [], [], []], melds: meldsAllEmpty, roundWind: '1z', dealer: 0, lastDiscard: { tile: '1z' } }
+  assert.deepEqual(botCallResponse(yakuhaiState, 0, { pon: true }, 'hard'), { type: 'pon' })
+
+  // Same shape for seat 1, but 3z (West) is neither its seat nor the round wind,
+  // and the meld's honor blocks tanyao — opening here would strand it yakuless.
+  const deadHand = ['3z', '3z', '2m', '3m', '4m', '6p', '7p', '8p', '2s', '3s', '4s', '5m', '5m']
+  const yakulessState = { hands: [[], deadHand, [], []], melds: meldsAllEmpty, roundWind: '1z', dealer: 0, lastDiscard: { tile: '3z' } }
+  assert.deepEqual(botCallResponse(yakulessState, 1, { pon: true }, 'hard'), { type: 'pass' })
 })
 
 // The discard picker must always return a tile that's actually in the hand.

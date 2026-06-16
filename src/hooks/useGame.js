@@ -72,6 +72,7 @@ export function useGame({ roomId, name }) {
   const [akaDora, setAkaDora] = useState(true) // host's red-fives toggle (default on)
   const [matchLength, setMatchLength] = useState('east') // host's match length: 'east' | 'south' | 'all'
   const [timeLimit, setTimeLimit] = useState('off') // host's turn clock: key into TIME_LIMITS
+  const [botDifficulty, setBotDifficulty] = useState('normal') // host's bot difficulty: 'easy' | 'normal' | 'hard'
   // Connection / error feedback surfaced to the UI.
   const [net, setNet] = useState({ peers: 0, relayOpen: 0, relayTotal: 0, reachedHost: false })
   const [warning, setWarning] = useState(null) // non-fatal connection guidance
@@ -93,6 +94,7 @@ export function useGame({ roomId, name }) {
   const clockRef = useRef({ key: null, seats: {} }) // host only: live turn-clock state
   const timeBaseRef = useRef(0) // host only: free seconds each move before the reserve drains
   const bankLeftRef = useRef([0, 0, 0, 0]) // host only: per-seat reserve seconds left this match
+  const botDifficultyRef = useRef('normal') // host only: difficulty driving bot decisions this match
   const updateClockRef = useRef(() => null) // host only: clock updater, set below
 
   const setRoleSafe = useCallback((next) => {
@@ -154,6 +156,7 @@ export function useGame({ roomId, name }) {
       rosterRef.current = seating
       setRoster(seating.slice())
       const players = seating.map((player) => ({ id: player.id, name: player.name }))
+      botDifficultyRef.current = botDifficulty
       const limit = TIME_LIMITS[timeLimit] || TIME_LIMITS.off
       timeBaseRef.current = limit.base
       // The reserve is a per-seat pool for the whole match (it only refills `base`
@@ -168,7 +171,7 @@ export function useGame({ roomId, name }) {
     } catch (err) {
       fail('Failed to start game', err)
     }
-  }, [broadcast, fail, akaDora, matchLength, timeLimit])
+  }, [broadcast, fail, akaDora, matchLength, timeLimit, botDifficulty])
 
   const goNextRound = useCallback(() => {
     if (!isHostRef.current || !gameRef.current) return
@@ -210,11 +213,11 @@ export function useGame({ roomId, name }) {
         let action
         if (pending.kind === 'turn') {
           if (current.state !== 'discard' || current.turn !== pending.seat) { runBotsRef.current(); return }
-          action = botTurnAction(current, pending.seat)
+          action = botTurnAction(current, pending.seat, botDifficultyRef.current)
         } else {
           const entry = current.pendingCalls?.[pending.seat]
           if (!entry || entry.responded) { runBotsRef.current(); return }
-          action = { type: 'callResponse', response: botCallResponse(entry.options) }
+          action = { type: 'callResponse', response: botCallResponse(current, pending.seat, entry.options, botDifficultyRef.current) }
         }
         gameRef.current = applyAction(current, pending.seat, action)
         broadcast()
@@ -663,6 +666,8 @@ export function useGame({ roomId, name }) {
     setMatchLength,
     timeLimit,
     setTimeLimit,
+    botDifficulty,
+    setBotDifficulty,
     net,
     warning,
     error,
