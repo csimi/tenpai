@@ -3,6 +3,7 @@ import { Box, Typography, Chip, Tooltip } from '@mui/material'
 import Tile, { SIZES } from './Tile.jsx'
 import EmojiPicker from './EmojiPicker.jsx'
 import { doraFromIndicator } from '../game/tiles.js'
+import { SIDEBAR_MQ } from './layout.js'
 
 // Countdown pill for a seat that's on the turn clock. `remaining` is the seat's
 // whole budget (base + reserve) left when the latest view arrived; `bank` is the
@@ -139,13 +140,24 @@ export function Melds({ melds, orient = 0, size = 'sm' }) {
   )
 }
 
-// Dora indicator strip.
+// Dora indicator strip. Each indicator is shown next to the tile it actually
+// makes a bonus (indicator -> dora), since the mapping isn't obvious for winds
+// and dragons (they cycle within their own group, not 1->2->3...).
 export function DoraIndicators({ indicators }) {
   return (
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+    <Box sx={{
+      display: 'flex', alignItems: 'center', gap: 0.5,
+      // In the narrow landscape sidebar the pairs don't fit side by side, so
+      // give each indicator -> dora pair its own line.
+      [SIDEBAR_MQ]: { flexDirection: 'column', alignItems: 'flex-start' }
+    }}>
       <Typography variant="caption" sx={{ color: '#cdbf94', mr: 0.5 }}>Dora</Typography>
       {indicators.map((tile, idx) => (
-        <Tile key={idx} tile={tile} size="sm" />
+        <Box key={idx} sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
+          <Tile tile={tile} size="sm" />
+          <Typography variant="caption" sx={{ color: '#8aa' }}>→</Typography>
+          <Tile tile={doraFromIndicator(tile)} size="sm" highlight />
+        </Box>
       ))}
     </Box>
   )

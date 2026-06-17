@@ -1,6 +1,7 @@
 import { Box, Typography } from '@mui/material'
 import Tile from './Tile.jsx'
 import { DoraIndicators } from './Pieces.jsx'
+import { SIDEBAR_MQ } from './layout.js'
 
 const WIND_NAME = { '1z': 'East', '2z': 'South', '3z': 'West', '4z': 'North' }
 
@@ -8,7 +9,12 @@ const WIND_NAME = { '1z': 'East', '2z': 'South', '3z': 'West', '4z': 'North' }
 // the app header bar (no separate bar of its own).
 export default function GameStatus({ view }) {
   return (
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+    <Box sx={{
+      display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap',
+      // In the narrow landscape sidebar, stack the round / dora / wall blocks so
+      // each gets its own line instead of crowding onto one.
+      [SIDEBAR_MQ]: { flexDirection: 'column', alignItems: 'flex-start', gap: 1 }
+    }}>
       <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
         {WIND_NAME[view.roundWind]} {view.roundNumber}
         {view.honba > 0 ? ` · ${view.honba} honba` : ''}

@@ -11,16 +11,16 @@ import GameStatus from './components/GameStatus.jsx'
 import YakuList from './components/YakuList.jsx'
 import TilePreview from './components/TilePreview.jsx'
 import { TileHoverContext } from './components/tileHover.js'
+import { SIDEBAR_MQ } from './components/layout.js'
 import { baseKind } from './game/tiles.js'
 import { useGame } from './hooks/useGame.js'
 
 // Phones held sideways have little vertical room, so the top bar would eat too
-// much of it and moves to a left sidebar. Detect "landscape phone" by a wide
-// aspect ratio (phones are >=18:9, so >=2:1 sideways; tablets are ~4:3) on a
-// touch pointer (excludes desktops). Aspect ratio is used instead of an absolute
+// much of it and moves to a left sidebar (SIDEBAR_MQ). Detected by a wide aspect
+// ratio (phones are >=18:9, so >=2:1 sideways; tablets are ~4:3) on a touch
+// pointer (excludes desktops). Aspect ratio is used instead of an absolute
 // max-height because high-DPI phones (e.g. Xperia 1 21:9) report a tall CSS
 // viewport that an absolute height cap misses.
-const SIDEBAR_MQ = '@media (orientation: landscape) and (pointer: coarse) and (min-aspect-ratio: 17/10)'
 
 // How many copies of a kind the local player can see (own hand + everyone's
 // discards/melds + dora indicators) and how many of the 4 remain unseen.
