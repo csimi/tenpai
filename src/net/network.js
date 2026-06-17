@@ -20,7 +20,7 @@ export { selfId }
 
 // Action namespaces. Kept short and stable.
 const NS = {
-  claim: 'clam', // any -> all: host-election claim { established, rosterSize }
+  claim: 'clam', // any -> all: host-election claim { established, rosterSize, hostId }
   hello: 'hello', // client -> host: announce name (and re-announce on reconnect)
   roster: 'rost', // host -> all: lobby roster + assigned seats
   view: 'view', //  host -> one: personalized game-state view

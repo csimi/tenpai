@@ -395,10 +395,13 @@ export function useGame({ roomId, name }) {
     let conn
 
     // Re-announce our current claim so newcomers (and rival hosts) learn our
-    // role and, if we're host, how populated our lobby is.
+    // role and, if we're host, how populated our lobby is. We also carry the
+    // host's id: a client forwards who its host is, so a newcomer that hasn't
+    // yet paired with the host directly still learns of it from any member.
     const sendMyClaim = () => {
       myClaim.established = isHostRef.current
       myClaim.rosterSize = isHostRef.current ? rosterRef.current.length : 0
+      myClaim.hostId = isHostRef.current ? selfId : (hostIdRef.current || null)
       connRef.current?.sendClaim(myClaim)
     }
 
@@ -438,20 +441,36 @@ export function useGame({ roomId, name }) {
       connRef.current?.sendHello({ name })
     }
 
-    // A rival host outranks us — step aside, but never abandon players who have
-    // already joined us and never mid-game (the engine can't be handed off).
+    // A rival host outranks us (a bigger lobby, or an equal one with a lower id):
+    // step aside so the table converges on one host. We never do this mid-game —
+    // the engine can't be handed off (`gameRef`). In the lobby it's safe even
+    // when we already have clients: they each hear the winner's bigger claim and
+    // re-home themselves, so yielding heals a split brain instead of freezing it.
     const stepDownTo = (hostId) => {
       if (gameRef.current) return
-      if (rosterRef.current.length > 1) return
       becomeClient(hostId)
     }
 
-    // After the settle window: defer to any established host, else the lowest id
-    // among everyone we've heard from becomes the host.
+    // After the settle window: defer to any host we've learned of — directly via
+    // an `established` claim, or indirectly via a member that named its host.
+    // Only with no host in sight do we fall back to the lowest-id rule, and even
+    // then we hold off while a connected peer still owes us a claim: a host whose
+    // claim is merely in flight must not be overrun by us crowning ourselves.
+    const electStartedAt = Date.now()
+    let settleTimer
     const decide = () => {
       if (roleRef.current !== 'electing') return
       const established = pickBestEstablished()
       if (established) { becomeClient(established.id); return }
+      for (const entry of claims.values()) {
+        if (entry.hostId) { becomeClient(entry.hostId); return }
+      }
+      const peers = connRef.current?.getPeers() || []
+      const heardEveryPeer = peers.every((peerId) => claims.has(peerId))
+      if (!heardEveryPeer && Date.now() - electStartedAt < ELECTION_WINDOW * 3) {
+        settleTimer = setTimeout(decide, CLAIM_RETRY)
+        return
+      }
       let lowest = selfId
       for (const entry of claims.values()) if (entry.id < lowest) lowest = entry.id
       if (lowest === selfId) becomeHost()
@@ -504,10 +523,13 @@ export function useGame({ roomId, name }) {
 
     // ---- host election ----
     conn.onClaim((data, peerId) => {
-      claims.set(peerId, { id: peerId, established: !!data.established, rosterSize: data.rosterSize || 0 })
+      claims.set(peerId, { id: peerId, established: !!data.established, rosterSize: data.rosterSize || 0, hostId: data.hostId || null })
       const current = roleRef.current
       if (current === 'electing') {
-        if (data.established) becomeClient((pickBestEstablished() || { id: peerId }).id)
+        // Defer the moment we learn of a host — whether this peer is the host
+        // (`established`) or merely a member naming its host (`hostId`).
+        if (data.established) { becomeClient((pickBestEstablished() || { id: peerId }).id); return }
+        if (data.hostId) becomeClient(data.hostId)
         return
       }
       if (current === 'host') {
@@ -518,10 +540,13 @@ export function useGame({ roomId, name }) {
           const otherWins = otherSize > mySize || (otherSize === mySize && peerId < selfId)
           if (otherWins) stepDownTo(peerId)
           else sendMyClaim()
-        } else {
-          // A newcomer announced itself — assert that we're the host so it defers.
+        } else if (!gameRef.current && !rosterRef.current.some((player) => player.id === peerId)) {
+          // A peer that isn't one of our clients yet (a newcomer, or someone's
+          // stray claim) — assert that we're the host so it defers, and resend
+          // the roster so it can join. Our own claims already loop our existing
+          // clients in via the heartbeat, so don't re-broadcast for them.
           sendMyClaim()
-          if (!gameRef.current) broadcastRoster()
+          broadcastRoster()
         }
         return
       }
@@ -589,15 +614,19 @@ export function useGame({ roomId, name }) {
       if (roleRef.current === 'electing') sendMyClaim()
       else clearInterval(claimRetry)
     }, CLAIM_RETRY)
-    const settleTimer = setTimeout(decide, ELECTION_WINDOW)
+    settleTimer = setTimeout(decide, ELECTION_WINDOW)
 
     // Lobby heartbeat: host keeps asserting its claim so peers converge on it;
-    // a client that hasn't reached its host keeps re-introducing itself.
+    // a client keeps naming its host (and re-introducing itself until answered)
+    // so a newcomer can converge through any member, not just the host directly.
     const heartbeat = setInterval(() => {
       if (isHostRef.current) {
         if (!gameRef.current) sendMyClaim()
-      } else if (roleRef.current === 'client' && !reachedHostRef.current) {
-        conn.sendHello({ name })
+      } else if (roleRef.current === 'client' && !viewRef.current) {
+        // Keep naming our host so newcomers can learn of it through us, and keep
+        // re-introducing ourselves until the host has answered with the roster.
+        sendMyClaim()
+        if (!reachedHostRef.current) conn.sendHello({ name })
       }
     }, LOBBY_HEARTBEAT)
 
