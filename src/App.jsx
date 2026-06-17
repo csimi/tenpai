@@ -51,7 +51,7 @@ function seenInfo(view, kind) {
 function GameSession({ config, onLeave }) {
   const {
     view, roster, chat, emotes, status, isHost, canStart, net, warning, error, ended, dismissError,
-    akaDora, setAkaDora, matchLength, setMatchLength, timeLimit, setTimeLimit, botDifficulty, setBotDifficulty, sendAction, startGame, goNextRound, sendChat, sendEmote
+    akaDora, setAkaDora, matchLength, setMatchLength, timeLimit, setTimeLimit, botDifficulty, setBotDifficulty, sendAction, startGame, goNextRound, newGame, sendChat, sendEmote
   } = useGame(config)
 
   const inGame = !!view
@@ -125,7 +125,7 @@ function GameSession({ config, onLeave }) {
 
         <Box sx={{ flex: 1, minHeight: 0 }}>
           {inGame ? (
-            <GameBoard view={view} isHost={isHost} sendAction={sendAction} goNextRound={goNextRound} emotes={emotes} sendEmote={sendEmote} />
+            <GameBoard view={view} isHost={isHost} sendAction={sendAction} goNextRound={goNextRound} onNewGame={newGame} emotes={emotes} sendEmote={sendEmote} />
           ) : (
             <Lobby
               roomId={config.roomId}

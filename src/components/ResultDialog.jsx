@@ -104,7 +104,7 @@ function PaymentBreakdown({ win, view }) {
   )
 }
 
-export default function ResultDialog({ view, isHost, onNext }) {
+export default function ResultDialog({ view, isHost, onNext, onNewGame }) {
   const result = view.result
   const open = (view.phase === 'roundEnd' || view.phase === 'gameEnd') && !!result
   if (!open) return null
@@ -167,6 +167,14 @@ export default function ResultDialog({ view, isHost, onNext }) {
         {!gameOver && !isHost && (
           <Typography variant="caption" sx={{ p: 1, color: '#cdbf94' }}>
             Waiting for host to start the next round…
+          </Typography>
+        )}
+        {gameOver && isHost && (
+          <Button variant="contained" onClick={onNewGame}>New game</Button>
+        )}
+        {gameOver && !isHost && (
+          <Typography variant="caption" sx={{ p: 1, color: '#cdbf94' }}>
+            Waiting for host to start a new game…
           </Typography>
         )}
       </DialogActions>

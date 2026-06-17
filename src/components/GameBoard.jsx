@@ -45,7 +45,7 @@ function FitBox({ children }) {
   )
 }
 
-export default function GameBoard({ view, isHost, sendAction, goNextRound, emotes = {}, sendEmote }) {
+export default function GameBoard({ view, isHost, sendAction, goNextRound, onNewGame, emotes = {}, sendEmote }) {
   const [riichiMode, setRiichiMode] = useState(false)
   const you = view.you
   const yourTurn = view.turn === you && view.state === 'discard'
@@ -151,7 +151,7 @@ export default function GameBoard({ view, isHost, sendAction, goNextRound, emote
         )}
       </Box>
 
-      <ResultDialog view={view} isHost={isHost} onNext={goNextRound} />
+      <ResultDialog view={view} isHost={isHost} onNext={goNextRound} onNewGame={onNewGame} />
     </Box>
   )
 }

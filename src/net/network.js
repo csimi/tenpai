@@ -26,6 +26,7 @@ const NS = {
   view: 'view', //  host -> one: personalized game-state view
   act: 'act', //    client -> host: an action intent
   start: 'strt', //  host -> all: game starting
+  reset: 'rset', //  host -> all: match over, return to the lobby
   chat: 'chat', //   any -> all: chat message
   emote: 'emot' //   any -> all: emoji reaction { seat, emoji }
 }
@@ -40,6 +41,7 @@ export function createConnection({ roomId, onPeerJoin, onPeerLeave }) {
   const view = room.makeAction(NS.view)
   const act = room.makeAction(NS.act)
   const start = room.makeAction(NS.start)
+  const reset = room.makeAction(NS.reset)
   const chat = room.makeAction(NS.chat)
   const emote = room.makeAction(NS.emote)
 
@@ -57,6 +59,7 @@ export function createConnection({ roomId, onPeerJoin, onPeerLeave }) {
     sendView: (payload, target) => view.send(payload, { target }),
     sendAct: (payload, target) => act.send(payload, target ? { target } : undefined),
     sendStart: (payload) => start.send(payload),
+    sendReset: (payload) => reset.send(payload || {}),
     sendChat: (payload) => chat.send(payload),
     sendEmote: (payload) => emote.send(payload),
 
@@ -67,6 +70,7 @@ export function createConnection({ roomId, onPeerJoin, onPeerLeave }) {
     onView: (handler) => { view.onMessage = (data, ctx) => handler(data, ctx.peerId) },
     onAct: (handler) => { act.onMessage = (data, ctx) => handler(data, ctx.peerId) },
     onStart: (handler) => { start.onMessage = (data, ctx) => handler(data, ctx.peerId) },
+    onReset: (handler) => { reset.onMessage = (data, ctx) => handler(data, ctx.peerId) },
     onChat: (handler) => { chat.onMessage = (data, ctx) => handler(data, ctx.peerId) },
     onEmote: (handler) => { emote.onMessage = (data, ctx) => handler(data, ctx.peerId) },
 

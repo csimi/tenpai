@@ -183,6 +183,26 @@ export function useGame({ roomId, name }) {
     }
   }, [broadcast, fail])
 
+  // Once a match is over, tear the finished game down and return everyone to the
+  // lobby for a fresh one. The host keeps its role (election is lobby-only and a
+  // started game pins it, but we're back in the lobby now); bots and any
+  // disconnected-human-turned-bot seats are dropped, leaving the live humans to
+  // re-seat on the next start.
+  const newGame = useCallback(() => {
+    if (!isHostRef.current || !gameRef.current) return
+    gameRef.current = null
+    clearTimeout(turnTimerRef.current)
+    clearTimeout(botTimerRef.current)
+    clockRef.current = { key: null, seats: {} }
+    rosterRef.current = rosterRef.current
+      .filter((player) => !player.bot)
+      .map((player) => ({ id: player.id, name: player.name }))
+    setView(null)
+    setStatus('lobby')
+    connRef.current?.sendReset()
+    broadcastRoster()
+  }, [broadcastRoster])
+
   // ---- bot driver (host only) ----
   // Inspect the authoritative state and, if the seat that must act next is a bot
   // (its turn to discard, or a pending call it must answer), schedule that move
@@ -598,6 +618,13 @@ export function useGame({ roomId, name }) {
       setStatus((prev) => (prev === 'connecting' ? 'lobby' : prev))
     })
     conn.onStart(() => { if (!isHostRef.current) setStatus('playing') })
+    // Host ended the match and reopened the lobby — drop our game view so the
+    // lobby (and its next-game settings) shows again.
+    conn.onReset(() => {
+      if (isHostRef.current) return
+      setView(null)
+      setStatus('lobby')
+    })
     conn.onView((data) => {
       if (isHostRef.current) return
       reachedHostRef.current = true
@@ -705,6 +732,7 @@ export function useGame({ roomId, name }) {
     sendAction,
     startGame,
     goNextRound,
+    newGame,
     sendChat,
     sendEmote
   }
