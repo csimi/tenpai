@@ -10,7 +10,7 @@
 // honba and riichi sticks. Defaults to an East-only match (tonpuusen).
 
 import {
-  buildWall, doraFromIndicator, sortTiles, removeOne, rankOf, suitOf, baseKind
+  buildWall, doraFromIndicator, sortTiles, removeOne, rankOf, suitOf, baseKind, isRedFive
 } from './tiles.js'
 import { waitingTiles, isWinningHand } from './agari.js'
 import { scoreHand } from './score.js'
@@ -24,9 +24,13 @@ const nextSeat = (seat) => (seat + 1) % 4
 
 // Remove one tile whose base kind matches `wanted` (so a red five satisfies a
 // request for its ordinary five), returning [newTiles, removedTile|null]. Used
-// when forming melds so the actual tile (red or not) ends up in the meld.
+// when forming melds so the actual tile (red or not) ends up in the meld. When
+// both a red and an ordinary five are available, take the red one: it counts as
+// aka dora whether melded or concealed, so locking it into the meld preserves
+// the dora that an exposed five could later be forced to discard away.
 function takeByBase(tiles, wanted) {
-  const idx = tiles.findIndex((tile) => baseKind(tile) === wanted)
+  let idx = tiles.findIndex((tile) => baseKind(tile) === wanted && isRedFive(tile))
+  if (idx === -1) idx = tiles.findIndex((tile) => baseKind(tile) === wanted)
   if (idx === -1) return [tiles, null]
   return [tiles.slice(0, idx).concat(tiles.slice(idx + 1)), tiles[idx]]
 }
