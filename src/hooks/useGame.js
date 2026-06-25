@@ -4,6 +4,7 @@ import {
   createGame, startRound, applyAction, viewFor, nextRound
 } from '../game/engine.js'
 import { botTurnAction, botCallResponse } from '../game/bot.js'
+import { sanitizeName } from '../sanitizeName.js'
 
 const MAX_PLAYERS = 4
 const clone = (value) => JSON.parse(JSON.stringify(value))
@@ -589,7 +590,7 @@ export function useGame({ roomId, name }) {
       if (!isHostRef.current || gameRef.current) return
       if (rosterRef.current.some((player) => player.id === peerId)) return
       if (rosterRef.current.length >= MAX_PLAYERS) return
-      rosterRef.current = [...rosterRef.current, { id: peerId, name: data.name || 'Player' }]
+      rosterRef.current = [...rosterRef.current, { id: peerId, name: sanitizeName(data.name) || 'Player' }]
       broadcastRoster()
       sendMyClaim() // our lobby grew — re-assert so rival hosts defer
     })

@@ -5,6 +5,7 @@ import {
 import CasinoIcon from '@mui/icons-material/Casino'
 import SchoolIcon from '@mui/icons-material/School'
 import Tutorial from './Tutorial.jsx'
+import { sanitizeName, NAME_MAX } from '../sanitizeName.js'
 
 const randomCode = () => Math.random().toString(36).slice(2, 7).toUpperCase()
 
@@ -36,8 +37,8 @@ export default function Home({ onEnter }) {
         <Stack spacing={2}>
           <TextField
             label="Your name" value={name}
-            onChange={(event) => setName(event.target.value)}
-            inputProps={{ maxLength: 16 }} autoFocus
+            onChange={(event) => setName(sanitizeName(event.target.value))}
+            inputProps={{ maxLength: NAME_MAX }} autoFocus
           />
 
           <TextField

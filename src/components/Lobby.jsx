@@ -41,7 +41,7 @@ export default function Lobby({ roomId, roster, isHost, canStart, onStart, akaDo
             return (
               <Paper key={seat} variant="outlined" sx={{ p: 1, display: 'flex', alignItems: 'center', gap: 1, opacity: player ? 1 : 0.4 }}>
                 <Chip size="small" label={seat === 0 ? 'Host' : `P${seat + 1}`} color={seat === 0 ? 'primary' : 'default'} />
-                <Typography>{player ? player.name : 'Open — filled by a bot'}</Typography>
+                <Typography noWrap sx={{ minWidth: 0 }}>{player ? player.name : 'Open — filled by a bot'}</Typography>
               </Paper>
             )
           })}

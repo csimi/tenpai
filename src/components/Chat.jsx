@@ -22,7 +22,7 @@ export default function Chat({ chat, onSend, height = 200 }) {
         )}
         {chat.map((entry, idx) => (
           <Typography key={idx} variant="body2" sx={{ mb: 0.3 }}>
-            <Box component="span" sx={{ color: '#e0b343', fontWeight: 600 }}>{entry.from}: </Box>
+            <Box component="span" sx={{ color: '#e0b343', fontWeight: 600, display: 'inline-block', verticalAlign: 'bottom', maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{entry.from}</Box>:{' '}
             {entry.text}
           </Typography>
         ))}
