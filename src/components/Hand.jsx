@@ -34,10 +34,12 @@ export default function Hand({ tiles, drawnTile, onDiscard, riichiMode, riichiTi
     drawn = drawnTile
   }
 
-  const canDiscard = (tile) => {
+  const canDiscard = (tile, key) => {
     if (!yourTurn) return false
     if (riichiMode) return riichiTiles?.includes(tile)
-    if (alreadyRiichi) return tile === drawnTile // must tsumogiri once in riichi
+    // Once in riichi the hand is locked: only the drawn tile (its own slot) may
+    // go. Match by slot, not kind — a resting tile of the same kind isn't the draw.
+    if (alreadyRiichi) return key === 'drawn'
     return true
   }
 
@@ -55,11 +57,11 @@ export default function Hand({ tiles, drawnTile, onDiscard, riichiMode, riichiTi
       key={key}
       tile={tile}
       size="xl"
-      onClick={canDiscard(tile) ? () => handleClick(tile, key) : undefined}
-      disabled={!canDiscard(tile)}
+      onClick={canDiscard(tile, key) ? () => handleClick(tile, key) : undefined}
+      disabled={!canDiscard(tile, key)}
       selected={selectedKey === key}
       highlight={riichiMode && riichiTiles?.includes(tile)}
-      dim={(riichiMode || alreadyRiichi) && !canDiscard(tile)}
+      dim={(riichiMode || alreadyRiichi) && !canDiscard(tile, key)}
       noMatchHighlight
     />
   )

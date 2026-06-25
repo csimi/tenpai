@@ -338,6 +338,8 @@ export function applyAction(state, seat, action) {
 function doDiscard(state, seat, tile, declareRiichi) {
   if (state.state !== 'discard' || state.turn !== seat) return state
   if (!state.hands[seat].includes(tile)) return state
+  // Once in riichi the hand is locked: only the freshly drawn tile may go (tsumogiri).
+  if (!declareRiichi && state.riichi[seat] && tile !== state.drawnTile) return state
   if (declareRiichi) {
     const opts = selfOptions(state, seat)
     if (!opts.riichi || !opts.riichi.includes(tile)) return state
