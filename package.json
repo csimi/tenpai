@@ -26,7 +26,7 @@
     "@trystero-p2p/nostr": "^0.25.2",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
-    "tilekit": "^1.1.0"
+    "tilekit": "^1.2.0"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^6.0.2",
